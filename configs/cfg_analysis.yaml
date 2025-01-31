@@ -1,0 +1,152 @@
+# This configuration file enables the user to specify parameter so the ML-based analysis to be conducted.
+# All final results where generated with the current configuration.
+
+execute_analysis: true
+
+params: # adjusted by SLURM on the cluster, set parameters here to run a specific analysis locally
+  prediction_model: elasticnet
+  crit: wb_state
+  feature_combination: mac
+  samples_to_include: all
+
+methods_to_apply:
+  - select_data
+  - initial_info_log
+  - drop_zero_variance_cols
+  - create_pipeline
+  - repeated_nested_cv
+  - get_average_coefficients
+  - process_all_shap_ia_values
+  - store_analysis_results  # Note: Caution, may override existing files
+
+load_data: true
+random_state: 42
+use_mpi4py: false
+split_reps: true # Note: This makes only sense if use_mpi4py is false
+store_pred_and_true: true
+
+tests:
+  sample: false
+  sample_size: 120
+
+feature_combinations:
+  - pl
+  - srmc
+  - sens
+  - mac
+
+feature_sample_combinations:
+  pl: [emotions, cocout, cocoesm, cocoms]
+  srmc: [emotions, cocout, cocoesm, cocoms]
+  sens: [zpid, cocoms]
+  mac: [cocoesm]
+  pl_srmc: [emotions, cocout, cocoesm, cocoms]
+  pl_sens: [zpid, cocoms]
+  pl_srmc_sens: [cocoms]
+  pl_mac: [cocoesm]
+  pl_srmc_mac: [cocoesm]
+  all_in: [cocoesm, cocout, cocoms, emotions, pia, zpid]
+
+  # Additional analyses excluding the neuroticism facets and self-esteem
+  pl_nnse: [emotions, cocout, cocoesm, cocoms]
+  pl_srmc_nnse: [ emotions, cocout, cocoesm, cocoms ]
+  pl_sens_nnse: [ zpid, cocoms ]
+  pl_srmc_sens_nnse: [ cocoms ]
+  pl_mac_nnse: [ cocoesm ]
+  pl_srmc_mac_nnse: [ cocoesm ]
+  all_in_nnse: [ cocoesm, cocout, cocoms, emotions, pia, zpid ]
+
+  # Feature configurations for further exploratory analyses not included in the results
+  pl_srmc_control: [ cocoms ]
+  srmc_control: [ cocoms ]
+  sens_fs: [ zpid, cocoms ]
+  pl_sens_fs: [ zpid, cocoms ]
+  pl_srmc_sens_fs: [ cocoms ]
+  all_in_fs: [ cocoesm, cocout, cocoms, emotions, pia, zpid ]
+
+# No control analyses needed for these combinations
+no_control_lst: [pl, srmc, sens, mac, all_in]
+
+cv:  # 10x10x10 CV in all reported analyses, can be adjusted for testing
+  num_inner_cv: 10
+  verbose_inner_cv: 0
+  num_outer_cv: 10
+  num_reps: 10
+  id_grouping_col: other_unique_id
+  cache_pipe: false  # not improving performance
+  warm_start: false  # not improving performance
+
+feature_selection:  # Exploratory, not included in the final results
+  num_sensing_features: 21
+
+crit_available: # As not all criteria are available for all samples
+  wb_state: [ cocoesm, cocout, cocoms, emotions, pia, zpid ]
+  pa_state: [ cocoesm, cocout, cocoms, emotions, pia ]
+  na_state: [ cocoesm, cocout, cocoms, emotions, pia ]
+  wb_trait: [ cocoesm, cocout, cocoms, pia, zpid ]
+  pa_trait: [ cocoesm, cocout, cocoms, pia, zpid ]
+  na_trait: [ cocoesm, cocout, cocoms, pia, zpid ]
+
+imputation:
+  num_imputations: 5
+  max_iter: 40  # may be adjusted for testing, as this takes a while
+  conv_thresh: 0.05  # only relevant for the non-linear imputer
+  tree_max_depth: 10  # only relevant for the non-linear imputer
+  percentage_of_features: 0.5  # only relevant for the linear imputer
+  n_features_thresh: 50  # only relevant for the linear imputer
+  sample_posterior: False  # currently not implemented, would require source code adjustments
+  pmm_k: 5
+  country_grouping_col: other_country
+  years_col: other_years_of_participation
+
+scoring_metric:
+  inner_cv_loop:  # For optimizing hyperparameters
+    name: neg_mean_squared_error
+  outer_cv_loop:  # Only for evaluation
+    - r2
+    - neg_mean_squared_error
+    - spearman
+    - pearson
+
+model_hyperparameters:  # Out-commented parameters are not used in the reported analyses but only for testing
+  elasticnet:
+    #model__regressor__alpha: [0.1, 1]
+    #model__regressor__l1_ratio: [0.5]
+    model__regressor__alpha: [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000]
+    model__regressor__l1_ratio: [0, 0.1, 0.2, 0.3, 0.4, 0.4, 0.6, 0.7, 0.8, 0.9, 1]
+    model__regressor__max_iter: [ 1000, 10000 ]
+    model__regressor__tol: [0.1, 0.01, 0.001, 0.0001]
+  randomforestregressor:
+    #model__regressor__max_depth: [ 4, 6 ]
+    #model__regressor__max_features: [ 0.2 ]
+    model__regressor__n_estimators: [ 100, 500 ]
+    model__regressor__max_features: [ 0.25, 0.5, 0.75]
+    model__regressor__max_depth: [4, 6, 8, 10, 12]
+    model__regressor__min_samples_split: [5, 10, 15, 20]
+
+parallelize:
+  parallelize_shap: true
+  shap_n_jobs: 3
+  parallelize_inner_cv: true
+  inner_cv_n_jobs: 3
+  parallelize_shap_ia_values: true
+  shap_ia_values_n_jobs: 1
+  parallelize_imputation_runs: true
+  imputation_runs_n_jobs: 1
+  joblib_backend: loky  # Note: Use "threading" when using mpi4py, use "loky" otherwise
+
+shap_ia_values:
+  comp_shap_ia_values: false # If true, calculates SHAP interaction values, may increase runtime significantly
+  interaction_index: "k-SII"
+  min_order: 0
+  max_order: 2
+  num_samples: 100  # for testing and potentially limiting filesize of some results
+
+output_path: "../results/local_tests"  # This applies only if computing local analyses
+
+output_filenames:  # of the raw results
+  performance: cv_results  # .json
+  shap_values: shap_values  # .pkl
+  shap_ia_values_for_local: shap_ia_values_for_local #.pkl
+  shap_ia_values_for_cluster: shap_ia_values_for_cluster #.pkl
+  lin_model_coefs: lin_model_coefficients # .pkl

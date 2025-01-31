@@ -1,0 +1,479 @@
+# This configuration file enables the configuration of certain parameters for the postprocessing of the results.
+# All final results where generated with the current configuration.
+
+execute_postprocessing: true
+
+methods_to_apply:
+  - condense_cv_results
+  - sanity_check_pred_vs_true
+  - create_descriptives
+  - conduct_significance_tests
+  - create_cv_results_plots
+  - create_shap_plots
+  - calculate_exp_lin_models
+  - create_lin_model_coefs_supp
+  - create_shap_values_supp  # this may take a while
+  - create_shap_ia_values_supp
+
+general:
+  feature_combinations:
+    name_mapping:
+      main:
+        pl: "Personal"
+        srmc: "Situational (ESM)"
+        sens: "Situational (Sensing)"
+        mac: "Societal"
+        pl_srmc: "Personal + Situational (ESM)"
+        pl_sens: "Personal + Situational (Sensing)"
+        pl_srmc_sens: "Personal + Situational (ESM) + Situational (Sensing)"
+        pl_mac: "Personal + Societal"
+        pl_srmc_mac: "Personal + Situational (ESM) + Societal"
+        all_in: "Personal + Situational (ESM) + Situational (Sensing) + Societal"
+      supp:
+        pl_nnse: "Personal without neuroticism facets and self-esteem"
+        pl_srmc_nnse: "Personal + Situational (ESM) without neuroticism facets and self-esteem"
+        pl_sens_nnse: "Personal + Situational (Sensing) without neuroticism facets and self-esteem"
+        pl_srmc_sens_nnse: "Personal + Situational (ESM) + Situational (Sensing) without neuroticism facets and self-esteem"
+        pl_mac_nnse: "Personal + Societal without neuroticism facets and self-esteem"
+        pl_srmc_mac_nnse: "Personal + Situational (ESM) + Societal without neuroticism facets and self-esteem"
+        all_in_nnse: "Personal + Situational (ESM) + Situational (Sensing) + Societal without neuroticism facets and self-esteem"
+      ia_values:
+        srmc_ia_values: "Situational (ESM): Interaction Values"
+
+  samples_to_include:
+    name_mapping:
+      all: "All datasets"
+      selected: "Reduced datasets"
+      control: "Control datasets"
+
+  crits:
+    name_mapping:
+      wb_state: "Experienced well-being"
+      wb_trait: "Remembered well-being"
+      pa_state: "Experienced positive affect"
+      na_state: "Experienced negative affect"
+      pa_trait: "Remembered positive affect"
+      na_trait: "Remembered positive affect"
+
+  models:
+    name_mapping:
+      elasticnet: ENR
+      randomforestregressor: RFR
+
+  metrics:
+    name_mapping:
+      pearson: r
+      r2: R2
+      spearman: rho
+      neg_mean_squared_error: MSE
+
+  processed_filenames:
+    cv_results_summarized: "cv_results_summary.json"
+    lin_model_coefs_summarized: "lin_model_coefs_summary.json"
+    shap_values_summarized: "shap_values_summary.pkl"
+    shap_ia_values_summarized: "shap_ia_values_summary.pkl"
+    state_files_base_name: wb_items
+    trait_files_base_name: trait_wb_items
+
+  data_paths:
+    base_path: "../results/"
+    main_results: run_2012  # This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
+    ia_values: ia_values_0912
+    sig_tests: sig_tests_1312
+    pred_vs_true: mac_pred_true
+    plots: plots
+    descriptives: descriptives
+
+  global_plot_params:
+    custom_cmap_colors:
+      - "#5E9ACC"  # Blue
+      - "#4F84B1"  # Deep blue
+      - "#9DB9BF"  # Soft gray-blue
+      - "#7DA5A9"  # Muted teal
+      - "#B9D1B9"  # Light green
+      - "#A3C7A1"  # Green
+      - "#E3EEE5"  # Very pale green
+      - "#CEE7CF"  # Light mint
+
+
+# Method-specific configurations
+condense_cv_results:
+  decimals: 3
+  negate_mse: true
+  add_other_sds: true
+  metrics:
+    - pearson
+    - r2
+    - spearman
+    - neg_mean_squared_error
+  all_results:
+    store: true
+    filename: "all_cv_results.json"
+
+  main_nnse_diffs:
+    crits: [ wb_state, wb_trait ]
+    samples_to_include: [ selected ]
+    metrics: [ pearson, r2 ]
+    decimals: 3
+    store: true
+    filename: "main_nnse_diffs.json"
+
+  perf_increase:
+    crits: [ wb_state, wb_trait ]
+    samples_to_include: [ all, selected ]
+    metrics: [ r2 ]
+    models: [ randomforestregressor, elasticnet ]
+    decimals: 3
+    fc_to_compare:
+      - [pl, pl_srmc_mac]
+    store: true
+    filename: "perf_increase_percent.json"
+
+  result_table:
+    store: true
+    file_base_name: cv_results
+    result_strs:
+      main: main
+      nnse: nnse
+    mapping:
+      feature_combination: "Predictor configuration"
+      model: "Prediction model"
+      metric: "Performance metric"
+
+sanity_check_pred_vs_true:
+  reps_to_check: [0, 1]
+
+  plot:
+    store: true
+    filename: pred_true_parity_plot
+    figure:
+      width: 8
+      height: 8
+    xlabel: "True value"
+    ylabel: "Predicted value"
+    base_title: "Pred vs True"
+
+  summary_stats:
+    store: true
+    filename: "pred_true_parity_summary.json"
+    decimals: 4
+
+create_descriptives:
+  states_base_filename: wb_items
+  traits_base_filename: trait_wb_items
+
+  m_sd_table:
+    store: true
+    filename: "vars_m_sd_table.xlsx"
+    decimals: 2
+    store_index: false
+    cont_agg_dct: { mean: M, std: SD }
+    bin_agg_lst: [ "%" ]
+    vars_to_include:
+      - pl
+      - srmc
+      - sens
+      - mac
+      - crit
+  wb_items:  # to ensure consistent tables
+    store: true
+    filename: "wb_items_descriptive_table.xlsx"
+    decimals: 2
+
+    state_order:
+      - Enthusiastic
+      - Excited
+      - Happy
+      - Relaxed
+      - Valence
+      - Angry
+      - Anxious
+      - Sad
+      - Worried
+
+    trait_order:
+      - Enthusiastic
+      - Excited
+      - Happy
+      - Relaxed
+      - Valence
+      - Angry
+      - Anxious
+      - Sad
+      - Worried
+
+  rel:
+    store: true
+    filename: "crit_rel_per_sample.json"
+    decimals: 2
+    state:
+      n_per_person_col_name: measures_per_person
+      id_name: joint_user_id
+      crits:
+          - wb_state
+          - pa_state
+          - na_state
+
+conduct_significance_tests:
+  cv_results_matching_pattern: "cv_results_rep_\\d+\\.json"
+  metric: r2
+  crit: wb_state
+  decimals: 3
+  delta_r2_str: delta_R2
+  t_strng: t
+  p_strng: p
+  p_fdr_strng: "p (FDR-corrected)"
+
+  compare_models:
+    store: true
+    filename_compare_models_main: "sig_tests_compare_models_main.xlsx"
+    filename_compare_models_control: "sig_tests_compare_models_control.xlsx"
+    stat_order:
+      - "M (SD) ENR"
+      - "M (SD) RFR"
+      - delta_R2
+      - t
+      - p
+      - "p (FDR-corrected)"
+
+  compare_predictor_classes:
+    store: true
+    filename_compare_predictor_classes: "sig_tests_compare_predictor_classes.xlsx"
+    ref_predictor_class: "pl"
+    stat_order:
+      - "M (SD) Personal"
+      - "M (SD) Other"
+      - delta_R2
+      - t
+      - p
+      - "p (FDR-corrected)"
+    feature_combinations_included:
+      - pl
+      - pl_srmc
+      - pl_sens
+      - pl_srmc_sens
+      - pl_mac
+      - pl_srmc_mac
+
+create_cv_results_plots:
+  crits: [ wb_state ] # must be iterable
+  samples_to_include: [ combo ]  # all / selected / combo, must be iterable
+  metrics: [ pearson ]  # must be iterable
+  m_metric: M
+  sd_metric: SD
+  models:
+    - elasticnet
+    - randomforestregressor
+
+  store_params:
+    store: true
+    dpi: 450
+    format: png  # png, pdf
+    name: cv_results
+
+  titles:
+    - "a) One-level predictions"
+    - "b) Two-level predictions"
+    - "c) Three-level predictions"
+
+  col_assignment:
+    first_col: [pl, srmc, sens, mac]
+    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
+    third_col: [pl_srmc_mac, all_in]
+
+  figure_params:
+    num_rows: 4
+    num_cols: 3
+    width: 20
+    height: 10
+    x_min: 0
+    x_max: 0.70
+    add_n: True
+    bar_width: 0.15
+    bar_align: center
+    bar_capsize: 5
+    y_line:
+      x_pos: [ 0.09, 0.4073, 0.725 ]
+      y_pos: [ [ 0.10, 0.908 ], [ 0.10, 0.908 ], [ 0.5202, 0.908 ] ]
+      linestyle: "-"
+      linewidth: 1
+      color: black
+    manual_x_label:
+      pos: [0.848, 0.482]
+    title_pos: [ 0.365, 1 ]
+    title_pad: 30
+    empty_cells:
+      - [ 3, 2 ]
+      - [ 2, 2 ]
+    tight_layout: [ 0.02, 0.02, 0.98, 0.98 ]
+
+  format_bar_plot:
+    xlabels:
+      max_char_on_line: 14
+      balance: false
+      split_strng: ";"
+      force_split_strng: true
+    axes:
+      yticks:
+        which: major
+        pad: 90
+        length: 0
+      ylabels:
+        hor_align: left
+      xlabels:
+        pad: 10
+      xticks:
+        decimals: 2
+
+  rel:
+    color: black
+    linestyle: "--"
+    linewidth: 1.2
+    base_label: "Reliability = "
+
+  legend:
+    model_legend:
+      add: true
+      enr_color: lightgray
+      enr_label: "ENR (Upper Bar)"
+      rfr_color: gray
+      rfr_label: "RFR (Lower Bar)"
+    feature_combo_legend:
+      add: true
+      ref_label: "Personal Predictors"
+      other_label: "Situational/Societal Predictors"
+    legend_loc: "lower right"
+    legend_pos: [ 0.955, 0.18 ]
+    ncol: 1
+
+  fontsizes:
+    title: 22
+    tick_params: 15
+    legend: 15
+    label: 15
+
+  color_dct:
+    pl: "#5E9ACC"
+    other: "#A3C7A1"
+    bar_saturation:
+      elasticnet: 0.7
+      randomforestregressor: 1
+
+  ref_dct:
+    samples_to_include: all
+    feature_combo: pl
+
+  n_samples:
+    pl: 9118
+    srmc: 9118
+    sens: 1338
+    mac: 4460
+    pl_srmc: 10015
+    pl_sens: 10015
+    pl_srmc_sens: 10015
+    pl_mac: 10015
+    pl_srmc_mac: 10015
+    all_in: 10015
+
+create_shap_plots:
+  models: [ randomforestregressor, elasticnet ]  # must be iterable
+  crits: [ wb_state, wb_trait]  # must be iterable
+  samples_to_include: [ all, selected]  # must be iterable
+  num_to_display: 6
+
+  store_params:
+    store: true
+    dpi: 450
+    format: png # pdf, png
+    name: beeswarm
+
+  col_assignment:
+    first_col: [pl, srmc, sens, mac]
+    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
+    third_col: [pl_srmc_mac, all_in]
+
+  figure_params:
+    num_rows: 4
+    num_cols: 3
+    width: 30
+    height: 42
+    fix_x_lim: true
+    x_lim: [ -0.8, 0.8 ]
+    max_char_on_line_y_ticks: 25
+    subplot_adjustments:
+      top: 0.92
+      left: 0.17
+      wspace: 1.25
+      hspace: 0.6
+      right: 0.94
+    empty_cells:
+      - [ 2, 2 ]
+      - [ 3, 2 ]
+
+  ia_values:
+    add: false
+    position: [ 3, 2 ]
+    feature_combination: srmc
+    short_feature_names: False
+    meta_stat_to_extract: top_interactions
+    stat_to_extract: top_abs_interactions
+    order_to_extract: 2
+    num_to_extract: 6
+    title_split_strng: ":"
+    abbreviation: IA
+    xlabel: "SHAP IA value (impact on model output)"
+
+  fontsizes:
+    main_title: 28
+    title: 26
+    tick_params: 22
+    x_label: 22
+    y_label: 22
+
+  titles:
+    fontweight: bold
+    max_char_on_line: 26
+    split_strng: "+"
+    add_n: True
+    shap_values:
+      - "a) One-level predictions"
+      - "b) Two-level predictions"
+      - "c) Three-level predictions"
+    shap_ia_values:
+      - "d) Predictor interactions"
+    line_dct:
+      row_0: 4
+      row_1: 5
+      row_2: 4
+      row_3: 3
+    position:
+      shap_values:
+        x_pos: 0.32
+        y_pos: 1.35
+        ha: center
+        va: bottom
+      shap_ia_values:
+        x_pos: 0.48
+        y_pos: 1.31
+        ha: center
+        va: bottom
+
+calculate_exp_lin_models:
+  num_features: 6
+  decimals: 3
+  store: true
+  base_filename: reg_table
+  samples_to_include: [ selected ]  # must be iterable
+  crits: [ wb_state ]  # must be iterable
+  model_for_features: [ randomforestregressor ]  # must be iterable
+
+  imputation: # only the params that deviate from the general imputation params
+    model: elasticnet
+    num_imputations: 1
+    percentage_of_features: 1
+    n_features_thresh: 6
+
+create_supp_files:
+  lin_coefs_output_filename: run_2012_lin_model_coefs
+  shap_output_filename: run_2012_shap_values
+  shap_ia_output_filename: run_2012_shap_ia_values

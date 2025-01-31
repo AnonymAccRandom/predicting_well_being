@@ -1,0 +1,2221 @@
+# This configuration file enables the user to specify parameter of the data preprocessing process
+# Furthermore, it includes the data specifications of each sample (items, scales, etc.).
+# All final results where generated with the current configuration.
+
+execute_preprocessing: true
+
+general:
+  datasets_to_be_included: [ cocoesm, cocoms, cocout, emotions, pia, zpid ]
+  log_dir: "../logs/x"  # only for relevant preprocessing
+  log_name: x
+
+  path_to_raw_data: "../data/raw"
+  store_data: true  # store the full preprocessed df
+  store_wb_items: true  # store the wb_items for calculating descriptives
+
+  path_to_preprocessed_data: "../data/preprocessed"
+  full_data_filename: full_data  # data used for ML-based analysis
+  min_num_esm_measures: 5  # exclusion criterion
+  nrows: 999999 # can be diminished for testing
+  need_inverse_coding: [ cocoms, cocout, emotions, pia, zpid ]  # cocoesm data is already inverse coded
+
+  esm_id_col:
+    cocoesm: participant
+    cocoms: original_id
+    cocout: id
+    emotions: id
+    pia: id
+    zpid: user_id
+
+  esm_timestamp_col:
+    emotions: created_esm
+    zpid: questionnaireStartedTimestamp_corrected
+    cocout: StartDateConvert_esm
+    pia: created
+    cocoesm: created_individual_esm
+    cocoms: questionnaireStartedTimestamp
+
+  years_of_data_collection:
+    cocoesm: [ 2021, 2022 ]
+    cocoms: [ 2022, 2023 ]
+    zpid: [ 2020 ]
+    emotions: [ 2020 ]
+    cocout: [ 2020, 2021 ]
+    pia: [ 2021 ]
+
+  pl_suffixes:
+    cocoesm: _t1
+    cocoms: [ _t1, _t2 ]
+    cocout: _t1
+    emotions: [ _t2, _t3, _t4 ]
+    pia: [ _t2, _t3, _t4 ]
+
+  country_col:
+    cocoesm:
+      trait: country
+      state: country_esm
+
+  sensing:
+    app_substring:
+      cocoms: App_
+      zpid: app_
+    call_substring:
+      cocoms: Call_totalDur
+      zpid: phone_sum_dur_calls
+    call_reference:
+      cocoms: Screen_totalDur_unlocked
+      zpid: screen_sum_dur_session
+
+sanity_checks:
+  sensing:
+    nan_col_thresh: 0.15
+    zero_col_thresh: 0.30
+
+  fix_country_mappings:
+    cocout: usa
+    pia: germany
+    emotions: germany
+    zpid: germany
+    cocoms: germany
+
+  nan_thresh: 0.3
+  cron_alpha_thresh: 0.6
+  expected_pos_corrs:
+    - self_esteem
+    - social_status
+    - trust_government
+    - education_level
+    - state_pa
+    - trait_pa
+    - trait_na
+    - sleep_quality_mean
+    - number_interactions_mean
+    - gdp_capita
+    - state_wb
+    - creative_imagination
+    - productiveness
+    - responsibility
+
+person_level:
+  other_trait_columns:
+    - name: id_col
+      var_type: continuous
+      item_names:
+        cocoesm: participant
+        cocoms: original_id
+        cocout: id
+        emotions: id
+        pia: id
+        zpid: p_0001
+
+    - name: trait_flags  # self-indicated careless responding
+      var_type: binary
+      item_names:
+        cocoesm: FLAG_self_indication
+        cocoms: selfindication_careless
+      category_mappings: # 0 indicates careless responding
+        cocoesm: { 1: 0, 0: 1 }
+        cocoms: { 1: 1, 2: 0 }
+
+    # we need to track this for the  ML-based analysis
+    - name: unique_id
+      item_names:
+        cocoms: unique_id
+
+    - name: time_col  # only relevant for cocoesm to merge the country-level vars
+      item_names:
+        cocoesm: created_demographics
+        cocoms: datetime
+        emotions: created_demog
+        pia: created_demog
+        zpid: created_demog
+        cocout: RecordedDateConvert
+
+    - name: country_col
+      item_names:
+        cocoesm: country
+        cocoms: country
+        emotions: country
+        pia: country
+        zpid: country
+        cocout: country
+
+
+  personality:
+    - name: sociability
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_1, bfi2s_16 ],
+        zpid: [BFI_2XS_E1],
+        cocout: [ Q1_1_bfi, Q1_16_bfi, Q1_31_bfi, Q1_46_bfi ],
+        pia: [ bfi2_1, bfi2_16, bfi2_31, bfi2_46 ],
+        cocoesm: [ bfi2_1, bfi2_16, bfi2_31, bfi2_46 ],
+        cocoms: [ bfi_e01, bfi_e04, bfi_e07, bfi_e10 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_1],
+        zpid: [BFI_2XS_E1],
+        cocout: [ Q1_16_bfi, Q1_31_bfi ],
+        pia: [ bfi2_16, bfi2_31 ],
+        cocoms: [ bfi_e04, bfi_e07 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: assertiveness
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_6, bfi2s_21 ],
+        zpid: [BFI_2XS_E2],
+        cocout: [ Q1_6_bfi, Q1_21_bfi, Q1_36_bfi, Q1_51_bfi ],
+        pia: [ bfi2_6, bfi2_21, bfi2_36, bfi2_51 ],
+        cocoesm: [ bfi2_6, bfi2_21, bfi2_36, bfi2_51 ],
+        cocoms: [ bfi_e02, bfi_e05, bfi_e08, bfi_e11 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_21 ],
+        zpid: [ ],
+        cocout: [ Q1_36_bfi, Q1_51_bfi ],
+        pia: [  bfi2_36, bfi2_51 ],
+        cocoms: [ bfi_e08, bfi_e11 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: energy_level
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_11, bfi2s_26 ],
+        zpid: [ BFI_2XS_E3 ],
+        cocout: [ Q1_11_bfi, Q1_26_bfi, Q1_41_bfi, Q1_56_bfi ],
+        pia: [ bfi2_11, bfi2_26, bfi2_41, bfi2_56 ],
+        cocoesm: [ bfi2_11, bfi2_26, bfi2_41, bfi2_56 ],
+        cocoms: [ bfi_e03, bfi_e06, bfi_e09, bfi_e12 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_26 ],
+        zpid: [ ],
+        cocout: [ Q1_11_bfi, Q1_26_bfi ],
+        pia: [ bfi2_11, bfi2_26 ],
+        cocoms: [ bfi_e03, bfi_e06 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: compassion
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_2, bfi2s_17 ],
+        zpid: [ BFI_2XS_A1 ],
+        cocout: [ Q1_2_bfi, Q1_17_bfi, Q1_32_bfi, Q1_47_bfi ],
+        pia: [ bfi2_2, bfi2_17, bfi2_32, bfi2_47 ],
+        cocoesm: [ bfi2_2, bfi2_17, bfi2_32, bfi2_47 ],
+        cocoms: [ bfi_a01, bfi_a04, bfi_a07, bfi_a10 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_17 ],
+        zpid: [ ],
+        cocout: [ Q1_17_bfi, Q1_47_bfi ],
+        pia: [ bfi2_17, bfi2_47 ],
+        cocoms: [ bfi_a04, bfi_a10 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: respectfulness
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_7, bfi2s_22 ],
+        zpid: [ BFI_2XS_A2 ],
+        cocout: [ Q1_7_bfi, Q1_22_bfi, Q1_37_bfi, Q1_52_bfi ],
+        pia: [ bfi2_7, bfi2_22, bfi2_37, bfi2_52],
+        cocoesm: [ bfi2_7, bfi2_22, bfi2_37, bfi2_52 ],
+        cocoms: [ bfi_a02, bfi_a05, bfi_a08, bfi_a11 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_22 ],
+        zpid: [ BFI_2XS_A2 ],
+        cocout: [ Q1_22_bfi, Q1_37_bfi ],
+        pia: [ bfi2_22, bfi2_37 ],
+        cocoms: [ bfi_a05, bfi_a08, ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: trust
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_12, bfi2s_27 ],
+        zpid: [ BFI_2XS_A3 ],
+        cocout: [ Q1_12_bfi, Q1_27_bfi, Q1_42_bfi, Q1_57_bfi ],
+        pia: [ bfi2_12, bfi2_27, bfi2_42, bfi2_57 ],
+        cocoesm: [ bfi2_12, bfi2_27, bfi2_42, bfi2_57 ],
+        cocoms: [ bfi_a03, bfi_a06, bfi_a09, bfi_a12 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_12 ],
+        zpid: [ ],
+        cocout: [ Q1_12_bfi, Q1_42_bfi],
+        pia: [ bfi2_12, bfi2_42  ],
+        cocoms: [ bfi_a03, bfi_a09 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: organization
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_3, bfi2s_18 ],
+        zpid: [ BFI_2XS_C1 ],
+        cocout: [ Q1_3_bfi, Q1_18_bfi, Q1_33_bfi, Q1_48_bfi ],
+        pia: [ bfi2_3, bfi2_18, bfi2_33, bfi2_48 ],
+        cocoesm: [ bfi2_3, bfi2_18, bfi2_33, bfi2_48 ],
+        cocoms: [ bfi_c01, bfi_c04, bfi_c07, bfi_c10 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_3 ],
+        zpid: [ BFI_2XS_C1 ],
+        cocout: [ Q1_3_bfi, Q1_48_bfi ],
+        pia: [ bfi2_3, bfi2_48 ],
+        cocoms: [ bfi_c01, bfi_c10 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: productiveness
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_8, bfi2s_23 ],
+        zpid: [ BFI_2XS_C2 ],
+        cocout: [ Q1_8_bfi, Q1_23_bfi, Q1_38_bfi, Q1_53_bfi ],
+        pia: [ bfi2_8, bfi2_23, bfi2_38, bfi2_53 ],
+        cocoesm: [ bfi2_8, bfi2_23, bfi2_38, bfi2_53 ],
+        cocoms: [ bfi_c02, bfi_c05, bfi_c08, bfi_c11 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_8 ],
+        zpid: [ BFI_2XS_C2 ],
+        cocout: [ Q1_8_bfi, Q1_23_bfi ],
+        pia: [ bfi2_8, bfi2_23 ],
+        cocoms: [ bfi_c02, bfi_c05 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: responsibility
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_13, bfi2s_28 ],
+        zpid: [ BFI_2XS_C3 ],
+        cocout: [ Q1_13_bfi, Q1_28_bfi, Q1_43_bfi, Q1_58_bfi ],
+        pia: [ bfi2_13, bfi2_28, bfi2_43, bfi2_58 ],
+        cocoesm: [ bfi2_13, bfi2_28, bfi2_43, bfi2_58 ],
+        cocoms: [ bfi_c03, bfi_c06, bfi_c09, bfi_c12 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_28 ],
+        zpid: [ ],
+        cocout: [ Q1_28_bfi, Q1_58_bfi ],
+        pia: [ bfi2_28, bfi2_58 ],
+        cocoms: [ bfi_c06, bfi_c12]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: anxiety
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_4, bfi2s_19 ],
+        zpid: [ BFI_2XS_N1 ],
+        cocout: [ Q1_4_bfi, Q1_19_bfi, Q1_34_bfi, Q1_49_bfi ],
+        pia: [ bfi2_4, bfi2_19, bfi2_34, bfi2_49 ],
+        cocoesm: [ bfi2_4, bfi2_19, bfi2_34, bfi2_49 ],
+        cocoms: [ bfi_n01, bfi_n04, bfi_n07, bfi_n10 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_4 ],
+        zpid: [ ],
+        cocout: [ Q1_4_bfi, Q1_49_bfi  ],
+        pia: [ bfi2_4, bfi2_49  ],
+        cocoms: [ bfi_n01, bfi_n10 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: depression
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_9, bfi2s_24 ],
+        zpid: [ BFI_2XS_N2 ],
+        cocout: [ Q1_9_bfi, Q1_24_bfi, Q1_39_bfi, Q1_54_bfi ],
+        pia: [ bfi2_9, bfi2_24, bfi2_39, bfi2_54 ],
+        cocoesm: [ bfi2_9, bfi2_24, bfi2_39, bfi2_54 ],
+        cocoms: [ bfi_n02, bfi_n05, bfi_n08, bfi_n11 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_24 ],
+        zpid: [ ],
+        cocout: [ Q1_9_bfi, Q1_24_bfi ],
+        pia: [ bfi2_9, bfi2_24 ],
+        cocoms: [ bfi_n02, bfi_n05 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: emotional_volatility
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_14, bfi2s_29 ],
+        zpid: [ BFI_2XS_N3 ],
+        cocout: [ Q1_14_bfi, Q1_29_bfi, Q1_44_bfi, Q1_59_bfi ],
+        pia: [ bfi2_14, bfi2_29, bfi2_44, bfi2_59 ],
+        cocoesm: [ bfi2_14, bfi2_29, bfi2_44, bfi2_59 ],
+        cocoms: [ bfi_n03, bfi_n06, bfi_n09, bfi_n12 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_29 ],
+        zpid: [ BFI_2XS_N3 ],
+        cocout: [ Q1_29_bfi, Q1_44_bfi ],
+        pia: [ bfi2_29, bfi2_44 ],
+        cocoms: [ bfi_n06, bfi_n09 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: intellectual_curiosity
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_10, bfi2s_25 ],
+        zpid: [ BFI_2XS_O2 ],
+        cocout: [ Q1_10_bfi, Q1_25_bfi, Q1_40_bfi, Q1_55_bfi ],
+        pia: [ bfi2_10, bfi2_25, bfi2_40, bfi2_55 ],
+        cocoesm: [ bfi2_10, bfi2_25, bfi2_40, bfi2_55 ],
+        cocoms: [ bfi_o02, bfi_o05, bfi_o08, bfi_o11 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_25 ],
+        zpid: [ BFI_2XS_O2 ],
+        cocout: [ Q1_25_bfi, Q1_55_bfi ],
+        pia: [ bfi2_25, bfi2_55 ],
+        cocoms: [ bfi_o05, bfi_o11 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: aesthetic_sensitivity
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_5, bfi2s_20 ],
+        zpid: [ BFI_2XS_O1 ],
+        cocout: [ Q1_5_bfi, Q1_20_bfi, Q1_35_bfi, Q1_50_bfi ],
+        pia: [ bfi2_5, bfi2_20, bfi2_35, bfi2_50 ],
+        cocoesm: [ bfi2_5, bfi2_20, bfi2_35, bfi2_50 ],
+        cocoms: [ bfi_o01, bfi_o04, bfi_o07, bfi_o10 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_5 ],
+        zpid: [ ],
+        cocout: [ Q1_5_bfi, Q1_50_bfi ],
+        pia: [ bfi2_5, bfi2_50 ],
+        cocoms: [ bfi_o01, bfi_o10 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: creative_imagination
+      time_of_assessment: { emotions: [ ], zpid: [ ], cocout: [ ], pia: [ ], cocoesm: [ ], cocoms: [ ] }
+      var_type: continuous
+      ques: { emotions: bfi2s, zpid: bfi2xs, cocout: bfi2, pia: bfi2, cocoesm: bfi2, cocoms: bfi2 }
+      item_names: {
+        emotions: [ bfi2s_15, bfi2s_30 ],
+        zpid: [ BFI_2XS_O3 ],
+        cocout: [ Q1_15_bfi, Q1_30_bfi, Q1_45_bfi, Q1_60_bfi ],
+        pia: [ bfi2_15, bfi2_30, bfi2_45, bfi2_60 ],
+        cocoesm: [ bfi2_15, bfi2_30, bfi2_45, bfi2_60 ],
+        cocoms: [ bfi_o03, bfi_o06, bfi_o09, bfi_o12 ]
+      }
+      items_to_recode: {
+        emotions: [ bfi2s_30 ],
+        zpid: [ ],
+        cocout: [ Q1_30_bfi, Q1_45_bfi ],
+        pia: [ bfi2_30, bfi2_45 ],
+        cocoms: [ bfi_o06, bfi_o09 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: sincerity
+      var_type: continuous
+      ques: { emotions: hexaco60, cocout: hexaco60, cocoesm: hexaco60, cocoms: hexaco60 }
+      item_names: {
+        emotions: [hex60_1, hex60_5, hex60_9],
+        cocout: [hex60_1, hex60_5, hex60_9],
+        cocoesm: [hex60_1, hex60_5, hex60_9],
+        cocoms: [ hex_60_01, hex_60_05, hex_60_09]
+      }
+      items_to_recode: {
+        emotions: [ hex60_5 ],
+        cocout: [hex60_5 ],
+        cocoms: [hex_60_05 ]
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: fairness
+      var_type: continuous
+      ques: { emotions: hexaco60, cocout: hexaco60, cocoesm: hexaco60, cocoms: hexaco60 }
+      item_names: {
+        emotions: [ hex60_2, hex60_6, hex60_10 ],
+        cocout: [ hex60_2, hex60_6, hex60_10 ],
+        cocoesm: [ hex60_2, hex60_6, hex60_10 ],
+        cocoms: [ hex_60_02, hex_60_06, hex_60_10 ],
+      }
+      items_to_recode: {
+        emotions: [ hex60_2, hex60_10 ],
+        cocout: [ hex60_2, hex60_10 ],
+        cocoms: [ hex_60_02, hex_60_10 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: greed_avoidance
+      var_type: continuous
+      ques: { emotions: hexaco60, cocout: hexaco60, cocoesm: hexaco60, cocoms: hexaco60 }
+      item_names: {
+        emotions: [ hex60_3, hex60_7],
+        cocout: [ hex60_3, hex60_7],
+        cocoesm: [ hex60_3, hex60_7],
+        cocoms: [ hex_60_03, hex_60_07],
+      }
+      items_to_recode: {
+        emotions: [ hex60_7 ],
+        cocout: [ hex60_7 ],
+        cocoms: [ hex_60_07 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: modesty
+      var_type: continuous
+      ques: { emotions: hexaco60, cocout: hexaco60, cocoesm: hexaco60, cocoms: hexaco60 }
+      item_names: {
+        emotions: [hex60_4, hex60_8],
+        cocout: [hex60_4, hex60_8],
+        cocoesm: [hex60_4, hex60_8],
+        cocoms: [hex_60_04, hex_60_08],
+      }
+      items_to_recode: {
+        emotions: [hex60_4, hex60_8],
+        cocout: [hex60_4, hex60_8],
+        cocoms: [hex_60_04, hex_60_08],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: narcissistic_admiration
+      var_type: continuous
+      ques: { emotions: narqs, zpid: dirtydozen, cocout: narqs, pia: narq, cocoesm: narqs, cocoms: narqs }
+      item_names: {
+        emotions: [ narqs_2, narqs_4, narqs_5],
+        zpid: [DIRTY12_N1, DIRTY12_N2, DIRTY12_N3, DIRTY12_N4],
+        cocout: [ narqs_2, narqs_4, narqs_5],
+        pia: [ narq_1, narq_2, narq_3, narq_5, narq_7, narq_8, narq_15, narq_16, narq_18],
+        cocoesm: [ narq_2, narq_4, narq_5],
+        cocoms: [ narq_2, narq_4, narq_5]
+      }
+      align_scales_mapping:
+        zpid:
+          min: {1: 1}
+          max: {9: 6}
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: narcissistic_rivalry
+      var_type: continuous
+      ques: { emotions: narqs, cocout: narqs, pia: narq, cocoesm: narqs, cocoms: narqs }
+      item_names: {
+        emotions: [ narqs_1, narqs_3, narqs_6],
+        cocout: [ narqs_1, narqs_3, narqs_6],
+        pia: [ narq_4, narq_6, narq_9, narq_10, narq_11, narq_12, narq_13, narq_14, narq_17],
+        cocoesm: [ narq_1, narq_3, narq_6],
+        cocoms: [ narq_1, narq_3, narq_6]
+      }
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: intimate_loneliness
+      var_type: continuous
+      ques: { emotions: uls, cocout: uls, cocoesm: uls, cocoms: uls }
+      item_names: {
+        emotions: [uls_1, uls_4, uls_8],
+        cocout: [uls_1, uls_4, uls_8],
+        cocoesm: [loneliness_1, loneliness_4, loneliness_8],
+        cocoms: [loneliness_1, loneliness_4, loneliness_8]
+      }
+      align_scales_mapping:
+        emotions:
+          min: { 1: 1 }
+          max: { 5: 4 }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: relational_loneliness
+      var_type: continuous
+      ques: { emotions: uls, cocout: uls, cocoesm: uls, cocoms: uls }
+      item_names: {
+        emotions: [uls_3, uls_5, uls_7],
+        cocout: [uls_3, uls_5, uls_7],
+        cocoesm: [loneliness_3, loneliness_5, loneliness_7],
+        cocoms: [loneliness_3, loneliness_5, loneliness_7]
+      }
+      items_to_recode: {
+        emotions: [uls_3, uls_5, uls_7],
+        cocout: [uls_3, uls_5, uls_7],
+        cocoms: [loneliness_3, loneliness_5, loneliness_7],
+      }
+      align_scales_mapping:
+        emotions:
+          min: { 1: 1 }
+          max: { 5: 4 }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: collective_loneliness
+      var_type: continuous
+      ques: { emotions: uls, cocout: uls, cocoesm: uls, cocoms: uls }
+      item_names: {
+        emotions: [uls_2, uls_6, uls_9],
+        cocout: [uls_2, uls_6, uls_9],
+        cocoesm: [loneliness_2, loneliness_6, loneliness_9],
+        cocoms: [loneliness_2, loneliness_6, loneliness_9]
+      }
+      items_to_recode: {
+        emotions: [uls_2, uls_6, uls_9],
+        cocout: [uls_2, uls_6, uls_9],
+        cocoms: [loneliness_2, loneliness_6, loneliness_9],
+      }
+      align_scales_mapping:
+        emotions:
+          min: { 1: 1 }
+          max: { 5: 4 }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: self_esteem
+      var_type: continuous
+      ques: { emotions: 1item, cocout: rses, pia: 1item, cocoesm: 1item, cocoms: 1item}
+      item_names:
+        emotions: [rses_1]
+        cocout: [Q1_1_se, Q1_2_se, Q1_3_se, Q1_4_se, Q1_5_se, Q1_6_se, Q1_7_se, Q1_8_se, Q1_9_se, Q1_10_se]
+        pia: [self_esteem]
+        cocoesm: [self_esteem]
+        cocoms: [self_esteem]
+      items_to_recode:
+        cocout: [ Q1_3_se, Q1_5_se, Q1_8_se, Q1_9_se, Q1_10_se]
+      scale_endpoints:
+        min: 1
+        max: 10
+      align_scales_mapping:
+        emotions:
+          min: { 0: 1 }
+          max: { 10: 10 }
+        coco_ut:
+          min: { 1: 1 }
+          max: { 5: 10 }
+        pia:
+          min: {0: 1}
+          max: {10: 10}
+
+    - name: religiosity
+      var_type: continuous
+      ques: { zpid: 1item, cocout: 1item,  cocoesm: 1item, cocoms: 1item}
+      item_names: {
+        zpid: [Demo_GL2],
+        cocout: [Q20_dem],
+        cocoesm: [religiosity],
+        cocoms: [religiosity],
+      }
+      align_scales_mapping:
+        coco_ut:
+          min: { 1: 1 }
+          max: { 5: 10 }
+        zpid:
+          min: { 1: 1}
+          max: { 4: 10}
+      scale_endpoints:
+        min: 1
+        max: 10
+
+    - name: political_orientation
+      var_type: continuous
+      ques: { emotions: 1item, zpid: 1item, cocout: 1item,  cocoesm: 1item, cocoms: 1item }
+      item_names: {
+        emotions: [political_orientation],
+        zpid: [ Polit_Ein_4 ],
+        cocout: [ Q12_dem ],
+        cocoesm: [ political_left_right ],
+        cocoms: [ vote_general ],
+      }
+      align_scales_mapping:
+        cocout:
+          min: { 7: 1 }
+          max: { 1: 11 }
+        cocoms:
+          min: {0: 1}
+          max: {10: 11}
+      scale_endpoints:
+        min: 1
+        max: 11
+      party_num_mapping:
+        cocoms:
+          {
+          1: 5.5,  # CDU
+          2: 3.9,  # SPD
+          3: 8.2,  # AfD
+          4: 5.0,  # FDP
+          5: 2.0,  # Linke
+          6: 3.4,  # Grüne
+          7: 5.9,  # CSU
+          }
+
+    - name: social_status
+      var_type: continuous
+      ques: { zpid: 1item, cocout: 1item, cocoesm: 1item, cocoms: 1item}
+      item_names: {
+        zpid: [Demo_SSS1],
+        cocout: [demog_ses],
+        cocoesm: [subjective_status],
+        cocoms: [subjective_status]
+      }
+      scale_endpoints:
+        min: 1
+        max: 10
+
+    - name: conspiracy_mentality
+      var_type: continuous
+      ques: { emotions: cmq, cocout: cmq, cocoesm: cmq, cocoms: cmq }
+      item_names: {
+        emotions: [cmq_1, cmq_2, cmq_3, cmq_4, cmq_5],
+        cocout: [cmq_1, cmq_2, cmq_3, cmq_4, cmq_5],
+        cocoesm: [cmq_1, cmq_2, cmq_3, cmq_4, cmq_5],
+        cocoms: [cmq_1, cmq_2, cmq_3, cmq_4, cmq_5],
+      }
+      align_scales_mapping:
+        cocoesm:
+          min: { 1: 1 }
+          max: { 10: 11 }
+        cocoms:
+          min: { 1: 1 }
+          max: { 10: 11 }
+      scale_endpoints:
+        min: 1
+        max: 11
+
+    - name: trust_government
+      var_type: continuous
+      ques: { cocout: 1item, cocoesm: 1item, cocoms: 1item }
+      item_names: {
+        cocout: [tig_1],
+        cocoesm: [trust_government],
+        cocoms: [trust_government],
+      }
+      align_scales_mapping:
+        cocout:
+          min: { 1: 1 }
+          max: { 5: 10 }
+      scale_endpoints:
+        min: 1
+        max: 10
+
+    - name: economic_marginalization
+      var_type: continuous
+      ques: { cocout: psm, cocoesm: psm, cocoms: psm }
+      item_names: {
+        cocout: [ psm_3, psm_6],
+        cocoesm: [ economic_marginalization1, economic_marginalization2 ],
+        cocoms: [ maginalization_economic_1, maginalization_economic_2 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: cultural_marginalization
+      var_type: continuous
+      ques: { cocout: psm, cocoesm: psm, cocoms: psm }
+      item_names: {
+        cocout: [ psm_2, psm_5, psm_7],
+        cocoesm: [ cultural_marginalization1, cultural_marginalization2 ],
+        cocoms: [ maginalization_cultural_1, maginalization_cultural_2 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: political_marginalization
+      var_type: continuous
+      ques: { cocout: psm, cocoesm: psm, cocoms: psm }
+      item_names: {
+        cocout: [ psm_1, psm_4],
+        cocoesm: [ political_marginalization1, political_marginalization2 ],
+        cocoms: [ maginalization_politic_1, maginalization_politic_2 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: dominance_orientation
+      var_type: continuous
+      ques: { cocout: sdo, cocoesm: sdo, cocoms: sdo }
+      item_names: {
+        cocout: [ sdo_1, sdo_3 ],
+        cocoesm: [ sdo_1, sdo_2, sdo_3, sdo_4],
+        cocoms: [ sdo_1, sdo_2, sdo_3, sdo_4],
+      }
+      items_to_recode: {
+        cocout: [sdo_3 ],
+        cocoesm: [sdo_3, sdo_4 ],
+        cocoms: [ sdo_3, sdo_4 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 7
+
+    - name: egalitarianism
+      var_type: continuous
+      ques: { cocout: sdo, cocoesm: sdo, cocoms: sdo }
+      item_names: {
+        cocout: [ sdo_2, sdo_4 ],
+        cocoesm: [ sdo_5, sdo_6, sdo_7, sdo_8],
+        cocoms: [ sdo_5, sdo_6, sdo_7, sdo_8],
+      }
+      items_to_recode: {
+        cocout: [ sdo_2 ],
+        cocoesm: [sdo_7, sdo_8 ],
+        cocoms: [ sdo_7, sdo_8 ],
+      }
+      scale_endpoints:
+        min: 1
+        max: 7
+
+    - name: aggressive_authoritarianism
+      var_type: continuous
+      ques: { zpid: ksa3, cocout: ksa3s, cocoesm: ksa3 , cocoms: ksa3 }
+      item_names: {
+        zpid: [KSA_3_AA1, KSA_3_AA2, KSA_3_AA3, KSA_3_AU1],
+        cocout: [ksa_1],
+        cocoesm: [ksa3_1, ksa3_2, ksa3_3, ksa3_4],
+        cocoms: [ksa3_1, ksa3_2, ksa3_3, ksa3_4],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: submissive_authoritarianism
+      var_type: continuous
+      ques: { zpid: ksa3, cocout: ksa3s,  cocoesm: ksa3 , cocoms: ksa3 }
+      item_names: {
+        zpid: [KSA_3_AU1, KSA_3_AU2, KSA_3_AU3],
+        cocout: [ksa_2],
+        cocoesm: [ksa3_5, ksa3_6],
+        cocoms: [ksa3_5, ksa3_6],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: conventionalist_authoritarianism
+      var_type: continuous
+      ques: { zpid: ksa3, cocout: ksa3s, cocoesm: ksa3 , cocoms: ksa3 }
+      item_names: {
+        zpid: [KSA_3_K1, KSA_3_K2, KSA_3_K3],
+        cocout: [ksa_3],
+        cocoesm: [ksa3_7, ksa3_8, ksa3_9],
+        cocoms: [ksa3_7, ksa3_8, ksa3_9],
+      }
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: self_distraction
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms:  }
+      item_names: {
+        zpid: [COPE_ABL1, COPE_ABL2],
+        cocoesm: [cope_1, cope_19],
+        cocoms: [cope_general_01, cope_general_19]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: active_coping
+      var_type: continuous
+      ques: { zpid: briefcope , cocoesm: briefcope , cocoms: briefcope }
+      item_names: {
+        zpid: [COPE_AKBE1, COPE_AKBE2],
+        cocoesm: [cope_2, cope_7],
+        cocoms: [cope_general_02, cope_general_07]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: denial
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_VL1, COPE_VL2],
+        cocoesm: [cope_3, cope_8],
+        cocoms: [cope_general_03, cope_general_08]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: substance_use
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_AD1, COPE_AD2],
+        cocoesm: [cope_4, cope_11],
+        cocoms: [cope_general_04, cope_general_11]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: emotional_support
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_EU1, COPE_EU2] ,
+        cocoesm: [cope_5, cope_15],
+        cocoms: [cope_general_05, cope_general_15]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: instrumental_support
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_IU1, COPE_IU2],
+        cocoesm: [cope_10, cope_23],
+        cocoms: [cope_general_10, cope_general_23]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: behavioral_disengagement
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_VR1, COPE_VR2],
+        cocoesm: [cope_6, cope_16],
+        cocoms: [cope_general_06, cope_general_16]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: venting
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_AVE1, COPE_AVE2],
+        cocoesm: [cope_9, cope_21],
+        cocoms: [cope_general_09, cope_general_21]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: positive_reframing
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_PU1, COPE_PU2],
+        cocoesm: [cope_12, cope_17],
+        cocoms: [cope_general_12, cope_general_17]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: planning
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_P1, COPE_P2],
+        cocoesm: [cope_14, cope_25],
+        cocoms: [cope_general_14, cope_general_25]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: humor
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_H1, COPE_H2],
+        cocoesm: [cope_18, cope_28],
+        cocoms: [cope_general_18, cope_general_28]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: acceptance
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_AKZ1, COPE_AKZ2],
+        cocoesm: [cope_20, cope_24] ,
+        cocoms: [cope_general_20, cope_general_24]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: religion
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_R1, COPE_R2] ,
+        cocoesm: [cope_22, cope_27],
+        cocoms: [cope_general_22, cope_general_27]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+    - name: self_blame
+      var_type: continuous
+      ques: { zpid: , cocoesm: , cocoms: }
+      item_names: {
+        zpid: [COPE_SB1, COPE_SB2],
+        cocoesm: [cope_13, cope_26],
+        cocoms: [cope_general_13, cope_general_26]
+      }
+      scale_endpoints:
+        min: 1
+        max: 4
+
+  criterion:
+    - name: pa_trait
+      var_type: continuous
+      ques: {}
+      item_names:
+        zpid: [ PANAS_POS7, PANAS_POS3 ]
+        cocout: [ awb_3, awb_5, awb_6 ]
+        pia: [ panas13, trait_happy, trait_relaxed, panas4 ]
+        cocoesm: [ panasx_4, panasx_5, panasx_6 ]
+        cocoms: [ panasx_4, panasx_5, panasx_6 ]
+      scale_endpoints:
+        min: 1
+        max: 5
+
+    - name: na_trait
+      var_type: continuous
+      ques: { }
+      item_names:
+        zpid: [ PANAS_NEG10, PANAS_NEG2, PANAS_NEG1 ]
+        cocout:  [ awb_1, awb_2, awb_4 ]
+        pia: [ trait_angry, trait_sad, panas20 ]
+        cocoesm: [ panasx_1, panasx_2, panasx_3 ]
+        cocoms: [ panasx_1, panasx_2, panasx_3 ]
+      scale_endpoints:
+        min: 1
+        max: 5
+
+  sociodemographics:
+    - name: age
+      var_type: continuous
+      item_names:
+        emotions: age
+        zpid: Demo_A1
+        cocout: Q24_dem
+        pia: age
+        cocoesm: age
+        cocoms: age
+
+    - name: gender_male # variables are aligned as number-category mappings differs between datasets
+      var_type: binary
+      item_names:
+        emotions: gender
+        zpid: Demo_GE1
+        cocout: Q1_dem
+        pia: gender
+        cocoesm: sex
+        cocoms: sex
+      category_mappings:
+        emotions: {1: 0, 2: 1, 3: 0}
+        zpid: {1: 1, 2: 0, 3: 0}
+        cocout: {1: 1, 2: 0, 3: 0}
+        pia: {1: 0, 2: 1, 3: 0}
+        cocoesm: {1: 0, 2: 1, 3: 0}
+        cocoms: {1: 0, 2: 1, 3: 0}
+
+    - name: gender_female # variables are aligned as number-category mappings differs between datasets
+      var_type: binary
+      item_names:
+        emotions: gender
+        zpid: Demo_GE1
+        cocout: Q1_dem
+        pia: gender
+        cocoesm: sex
+        cocoms: sex
+      category_mappings:
+        emotions: {1: 1, 2: 0, 3: 0}
+        zpid: {1: 0, 2: 1, 3: 0}
+        cocout: {1: 0, 2: 1, 3: 0}
+        pia: {1: 1, 2: 0, 3: 0}
+        cocoesm: {1: 1, 2: 0, 3: 0}
+        cocoms: {1: 1, 2: 0, 3: 0}
+
+    - name: gender_other # 1 other
+      var_type: binary
+      item_names:
+        emotions: gender # 1 female, 2 male, 3 other
+        zpid: Demo_GE1 # 1 male, 2 female, 3 other
+        cocout: Q1_dem # 1 male, 2 female, 3 other
+        pia: gender  # gender_o, gender_t1? # 1 female, 2 male, 3 other
+        cocoesm: sex # 1 female, 2 male, 3 other
+        cocoms: sex # 1 female, 2 male, 3 other
+      category_mappings:
+        emotions: { 1: 0, 2: 0, 3: 1 }
+        zpid: { 1: 0, 2: 0, 3: 1 }
+        cocout: { 1: 0, 2: 0, 3: 1 }
+        pia: { 1: 0, 2: 0, 3: 1 }
+        cocoesm: { 1: 0, 2: 0, 3: 1 }
+        cocoms: { 1: 0, 2: 0, 3: 1 }
+
+    # Professional status variables are aligned based on the datasets categories and sample type (see codebooks)
+    - name: student
+      var_type: binary
+      item_names:
+        emotions: occupational_status
+        zpid: Demo_AL1
+        cocout: professional_status
+        pia: occupational_status
+        cocoesm: professional_status
+        cocoms: professional_status_student
+      category_mappings:
+        emotions: {1: 1, 2: 1}
+        zpid: {9: 1, 10: 1}
+        cocout: { 1: 1 }
+        pia: { 1: 1, 2: 1 }
+        cocoesm: { 1: 1, 2: 1 }
+        cocoms: { 1: 1, 2: 1 }
+
+    - name: full_employed
+      var_type: binary
+      item_names:
+        emotions: occupational_status
+        zpid: Demo_AL1
+        pia: occupational_status
+        cocoesm: professional_status
+        cocoms: professional_status
+      category_mappings:
+        emotions: { 5: 1 }
+        zpid: { 1: 1, 3: 1 }
+        pia: { 5: 1}
+        cocoesm: { 4: 1 }
+        cocoms: { 4: 1 }
+
+    - name: part_employed
+      var_type: binary
+      item_names:
+        emotions: occupational_status
+        zpid: Demo_AL1
+        pia: occupational_status
+        cocoesm: professional_status
+        cocoms: professional_status
+      category_mappings:
+        emotions: {6: 1}
+        zpid: { 14: 1}
+        pia: { 6: 1 }
+        cocoesm: { 5: 1 }
+        cocoms: { 5: 1}
+
+    - name: self_employed
+      var_type: binary
+      item_names:
+        emotions: occupational_status
+        zpid: Demo_AL1
+        pia: occupational_status
+        cocoesm: professional_status
+        cocoms: professional_status
+      category_mappings:
+        emotions: { 7: 1}
+        zpid: { 2: 1}
+        pia: { 7: 1}
+        cocoesm: {  6: 1}
+        cocoms: { 6: 1 }
+
+    - name: unemployed
+      var_type: binary
+      item_names:
+        emotions: occupational_status
+        zpid: Demo_AL1
+        pia: occupational_status
+        cocoesm: professional_status
+        cocoms: professional_status
+      category_mappings:
+        emotions: {9: 1}
+        zpid: {12: 1, 13: 1 }
+        pia: {9: 1}
+        cocoesm: {8: 1}
+        cocoms: {8: 1}
+
+    # We rescale this to a common scale, as scale endpoints are similar but the steps differ between datasets
+    - name: education_level
+      var_type: continuous
+      item_names:
+        emotions: educational_status
+        zpid: Demo_B1
+        cocout: educational_attainment
+        pia: educational_status
+        cocoesm: educational_attainment
+        cocoms: educational_attainment
+      category_mappings:
+        emotions: {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6}
+        pia: {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6}
+        cocoesm: {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 5, 7: 6}
+        cocoms: { 3: 3, 4: 4, 5: 6, 6: 5, 7: 6}
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: people_household
+      var_type: continuous
+      item_names:
+        emotions: household
+        zpid: Wohn1
+        cocout: demog_ppl_household
+        cocoesm: quantity_household
+        cocoms: quantity_household
+
+    - name: living_alone
+      var_type: binary
+      item_names:
+        emotions: household
+        zpid: Demo_FS6_1
+        cocout: demog_ppl_household
+        cocoesm: quantity_household
+        cocoms: household_none
+      category_mappings:
+        emotions: {1: 1}
+        zpid: {1: 1}
+        cocout: {0: 1, 1: 1}
+        cocoesm: {1: 1}
+        cocoms: {1: 1}
+
+    - name: living_partner
+      var_type: binary
+      item_names:
+        zpid: Demo_FS6_3
+        cocout: demog_relationship_ppl_household
+        cocoesm: relationship_household
+        cocoms: household_partner
+      category_mappings:
+        zpid: { 1: 1 }
+        cocout: {3: 1}
+        cocoesm: {3: 1 }
+        cocoms: { 1: 1 }
+
+    - name: living_children
+      var_type: binary
+      item_names:
+        zpid: Demo_FS6_4
+        cocout: demog_relationship_ppl_household
+        cocoesm: relationship_household
+        cocoms: household_children
+      category_mappings:
+        zpid: { 1: 1 }
+        cocout: { 5: 1 }
+        cocoesm: { 5: 1 }
+        cocoms: { 1: 1 }
+
+    - name: living_other
+      var_type: binary
+      item_names:
+        zpid: Demo_FS6_2
+        cocout: demog_relationship_ppl_household
+        cocoesm: relationship_household
+        cocoms: [ household_roommate, household_friends, household_parents, household_family_other ]
+      category_mappings:
+        zpid: { 1: 1 }
+        cocout: { 1: 1, 2: 1, 4: 1, 6: 1 }
+        cocoesm: { 1: 1, 2: 1, 4: 1, 6: 1 }
+        cocoms: { 1: 1 }
+
+    # In CoCoESM and CoCoMS, this is approximated via ESM
+    - name: relationship
+      var_type: binary
+      item_names:
+        emotions: relationship_status
+        zpid: Demo_FS2
+        cocout: Q14_dem
+        pia: relationship_status
+      category_mappings:
+        emotions: {2: 1, 3: 1}
+        zpid: {2: 1}
+        cocout: {2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1}
+        pia: {2: 1, 3: 1}
+
+    # Here, this situational variable is approximated form the trait survey
+    - name: home_office
+      var_type: percentage
+      item_names:
+        zpid: Arbeitsleben91_AugOct
+      category_mappings:
+        zpid: {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7 }
+
+
+esm_based:
+  other_esm_columns:
+    - name: id_col
+      var_type: continuous
+      item_names:
+        cocoesm: participant
+        cocoms: original_id
+        cocout: id
+        emotions: id
+        pia: id
+        zpid: user_id
+
+    - name: timestamp
+      var_type: timestamp
+      item_names:
+        emotions: created_esm
+        zpid: questionnaireStartedTimestamp_corrected
+        cocout: StartDateConvert_esm
+        pia: created
+        cocoesm: created_individual_esm
+        cocoms: questionnaireStartedTimestamp
+
+    # We need this for e.g. seperated sample counts in CoCoMS and CoCoUT
+    - name: studyWave
+      var_type: string
+      item_names:
+        cocoms: studyWave
+        cocout: studyWave
+        zpid: studyWave
+        emotions: wave
+
+    - name: country_esm
+      var_type: string
+      item_names:
+        cocoesm: country_esm
+
+  self_reported_micro_context:
+    - name: number_interactions
+      var_type: continuous
+      item_names:
+        emotions: interaction
+        zpid: diamonds_sociality
+        cocout: momentary_context_interaction_ema
+        pia: social_interaction
+        cocoesm: social_interaction
+        cocoms: selection_medium_00
+      category_mappings:
+        emotions: { 1: 1}
+        zpid: { 0: 1 }
+        cocout: {1: 1 }
+        pia: {1: 1 }
+        cocoesm: {1: 1 }
+        cocoms: {0: 1 }
+
+    - name: percentage_interactions
+      var_type: percentage
+      item_names:
+        emotions: interaction
+        zpid: diamonds_sociality
+        cocout: momentary_context_interaction_ema
+        pia: social_interaction
+        cocoesm: social_interaction
+        cocoms: selection_medium_00
+      category_mappings:
+        emotions: { 1: 1 }
+        zpid: { 0: 1 }
+        cocout: { 1: 1 }
+        pia: { 1: 1 }
+        cocoesm: { 1: 1 }
+        cocoms: { 0: 1 }
+
+    # Created based on the selection medium of the individual datasets (e.g., face-to-face vs. phone)
+    - name: ftf_interactions
+      var_type: percentage
+      item_names:
+        emotions: communication
+        cocout: soc_interact_mode_ema
+        cocoesm: selection_medium
+        cocoms: selection_medium_01
+      category_mappings:
+        emotions: {1: 1, 2: 0}
+        cocout: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: "not_a_number"}
+        cocoesm: { 1: 1 }
+        cocoms: { 1: 1 }
+
+    # Created based on the type of interaction partner in the individual datasets (e.g., family vs. co-worker)
+    - name: close_interactions
+      var_type: percentage
+      item_names:
+        emotions: [ interaction_partner1, interaction_partner2, interaction_partner3, interaction_partner4, interaction_partner5 ]
+        cocout: soc_interact_partner_ema
+        cocoesm: selection_partners
+        cocoms: [ selection_partners_00, selection_partners_01, selection_partners_02, selection_partners_03, selection_partners_04, selection_partners_05, selection_partners_06, selection_partners_07, selection_partners_08, selection_partners_09 ] # SI38_01 Freund, Bekannter, Kollege, Partner, Familie, Sonstige
+      category_mappings:
+        cocout: {1: 0, 2: 0, 3: 1, 4: 1, 5: 0, 6: 1, 7: 0, 8: 0, 0: "not_a_number"}
+        cocoesm: {1: 0, 2: 1, 3: 1, 4: 1, 5: 1, 6: 0, 7: 0, 8: 0, 9: 0}
+      special_mappings:
+        cocoms:
+          wave1:
+            close_ties: [selection_partners_03, selection_partners_04, selection_partners_05, selection_partners_06]
+            weak_ties: [selection_partners_01, selection_partners_02, selection_partners_07, selection_partners_08, selection_partners_09]
+          wave3: {1: 1, 4: 1, 5: 1, 2: 0, 3: 0, 6: 0}
+        emotions:
+          columns: [ interaction_partner1, interaction_partner2, interaction_partner3, interaction_partner4, interaction_partner5 ]
+          mapping: {1: 0, 2: 0, 3: 0, 4: 0, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 11: 0}
+
+    # As personal and societal conversations, these are created based on the topic of interaction (e.g., work vs. personal issues vs. politics)
+    - name: work_conversations
+      var_type: percentage
+      item_names:
+        cocout: soc_interact_topic_ema
+        cocoesm: selection_topics
+        cocoms: [selection_topics_01, selection_topics_02, selection_topics_03, selection_topics_04, selection_topics_05, selection_topics_06, selection_topics_07, selection_topics_08, selection_topics_09, selection_topics_00] # 01 work, 02 (training / studies /other education), 03 (leisure activities / interests), 04 (other people), 05 (personal issues / problems), 06 (COVID-19), 07 (War in Ukraine), 08 (politics), 09 (other topics), 00 no interaction
+      category_mappings:
+        cocout: {1: 1, 2: 0, 3: 1, 4: 0, 5: 0, 6: 0, 7: 0 , 8: 0, 0: "not_a_number"}
+        cocoesm: {1: 1, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
+      special_mappings:
+        cocoms:
+          wave1:
+            work_columns: [selection_topics_01, selection_topics_02]
+            other_columns: [selection_topics_03, selection_topics_04, selection_topics_05, selection_topics_06, selection_topics_07, selection_topics_08, selection_topics_09]
+
+    - name: personal_conversations
+      var_type: percentage
+      item_names:
+        cocout: soc_interact_topic_ema
+        cocoesm: selection_topics
+        cocoms: [ selection_topics_01, selection_topics_02, selection_topics_03, selection_topics_04, selection_topics_05, selection_topics_06, selection_topics_07, selection_topics_08, selection_topics_09, selection_topics_00 ] # 01 work, 02 (training / studies /other education), 03 (leisure activities / interests), 04 (other people), 05 (personal issues / problems), 06 (COVID-19), 07 (War in Ukraine), 08 (politics), 09 (other topics), 00 no interaction
+      category_mappings:
+        cocout: { 1: 0, 2: 1, 3: 0, 4: 1, 5: 1, 6: 0, 7: 0, 8: 0, 0: "not_a_number"}
+        cocoesm: { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 0, 7: 0, 8: 0, 9: 0 }
+      special_mappings:
+        cocoms:
+          wave1:
+            pers_columns: [ selection_topics_03, selection_topics_04, selection_topics_05]
+            other_columns: [ selection_topics_01, selection_topics_02, selection_topics_06, selection_topics_07, selection_topics_08, selection_topics_09 ]
+
+    - name: societal_conversations
+      var_type: percentage
+      item_names:
+        cocout: soc_interact_topic_ema
+        cocoesm: selection_topics
+        cocoms: [ selection_topics_01, selection_topics_02, selection_topics_03, selection_topics_04, selection_topics_05, selection_topics_06, selection_topics_07, selection_topics_08, selection_topics_09, selection_topics_00 ] # 01 work, 02 (training / studies /other education), 03 (leisure activities / interests), 04 (other people), 05 (personal issues / problems), 06 (COVID-19), 07 (War in Ukraine), 08 (politics), 09 (other topics), 00 no interaction
+      category_mappings:
+        cocout: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 1, 7: 1 , 8: 1, 0: "not_a_number"}
+        cocoesm: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 1, 7: 1, 8: 0, 9: 1 }
+      special_mappings:
+        cocoms:
+          wave1:
+            soc_columns: [ selection_topics_06, selection_topics_07, selection_topics_08 ]
+            other_columns: [ selection_topics_01, selection_topics_02, selection_topics_03, selection_topics_04, selection_topics_05, selection_topics_09 ]
+
+    - name: job_situations
+      var_type: percentage
+      item_names:
+        emotions: type_activity
+        cocout: momentary_context_activity_ema
+        pia: interaction_type
+        cocoesm: situation_type
+      category_mappings:
+        emotions: {1: 1}
+        cocout: {1: 1, 2: 1, 3: 1}
+        pia: {1: 1}
+        cocoesm: {1: 1}
+
+    # We compute M, SD, Min and Max based on ESM data
+    - name: number_interaction_partners
+      var_type: continuous
+      item_names:
+        emotions: no_interactionpartner
+        cocout: momentary_context_inperson_interact_ema
+        cocoesm: interaction_quantity
+        cocoms: social_interaction
+      special_mappings:
+        cocout:
+          str_to_num: {One: 1, one: 1, Two: 2, two: 2}
+
+    # We compute M, SD, Min and Max based on ESM data
+    - name: sleep_quality
+      var_type: continuous
+      item_names:
+        zpid: Sleep_CSD8
+        cocoesm: sleep_quality
+        cocoms: sleep_quality
+      scale_endpoints:
+        min: 1
+        max: 6
+      category_mappings:
+        cocoesm: { 1: 1, 2: 0 }
+        cocoms: { 1: 1, 2: 0 }
+
+    - name: home_office
+      var_type: percentage
+      per_day: true
+      item_names:
+        cocoesm: home_office1
+        cocoms: home_office1
+      category_mappings:
+        cocoesm: {1: 1, 2: 0}
+
+    - name: relationship
+      var_type: binary
+      item_names:
+        cocoesm: selection_partners
+        cocoms:
+          wave1: selection_partners_05
+          wave3: selection_partners_01
+      special_mappings:
+        cocoesm: 4
+        cocoms:
+          wave1: 1
+          wave3: 4
+
+    # This var needs custom preprocessing, for details, see the "BasePreprocessor" class
+    - name: weekday_responses
+      var_type: percentage
+
+    - name: early_day_responses
+      var_type: percentage
+
+    - name: number_responses
+      var_type: percentage
+
+    - name: percentage_responses
+      var_type: percentage
+      special_mappings:
+        emotions: 84
+        zpid: 56
+        cocout: 224
+        pia: 84
+        cocoesm: 140
+        cocoms: 140
+
+  criterion:
+    - name: pa_state
+      var_type: continuous
+      ques:
+      item_names:
+        emotions: [occup_relaxed, int_relaxed, occup_enthusiastic, int_enthusiastic]
+        zpid: [valence]
+        cocout: [momentary_wellbeing_happy_ema]
+        pia: [happy, relaxed, enthusiastic]
+        cocoesm: [state_pa1, state_pa2, state_pa3]
+        cocoms: [state_pa1, state_pa2, state_pa3]
+      align_scales_mapping:
+        cocout:
+          min: {1: 1}
+          max: {4: 6}
+      scale_endpoints:
+        min: 1
+        max: 6
+
+    - name: na_state
+      var_type: continuous
+      item_names:
+        emotions: [occup_angry, int_angry, occup_sad, int_sad, occup_anxious, int_anxious ]
+        cocout: [momentary_wellbeing_angry_ema, momentary_wellbeing_sad_ema, momentary_wellbeing_worried_ema]
+        pia:  [angry, sad, afraid]
+        cocoesm: [state_na1, state_na2, state_na3]
+        cocoms: [state_na1, state_na2, state_na3]
+      align_scales_mapping:
+        cocout:
+          min: { 1: 1 }
+          max: { 4: 6 }
+      scale_endpoints:
+        min: 1
+        max: 6
+
+sensing_based:
+  phone:
+    - name: id_col
+      item_names:
+        cocoms: username
+        zpid: user_id
+    - name: date
+      item_names:
+        cocoms: day
+        zpid: agg_id
+
+    - name: smartphone_usage
+      var_type: continuous
+      item_names:
+        zpid: screen_sum_dur_session
+        cocoms: Screen_totalDur_unlocked
+      cut_off: 1440
+    - name: smartphone_activation
+      var_type: continuous
+      item_names:
+        zpid: screen_total_num_session_locked
+        cocoms: Screen_totalNum_locked
+    - name: phone_talking
+      var_type: continuous
+      item_names:
+        zpid: phone_sum_dur_calls
+        cocoms: Call_totalDur
+      cut_off: 1440
+    - name: first_usage
+      var_type: continuous
+      item_names:
+        zpid: screen_time_first_session
+        cocoms: Screen_firstEvent
+    - name: last_usage
+      var_type: continuous
+      item_names:
+        zpid: screen_time_last_session
+        cocoms: Screen_lastEvent
+    - name: audio_entertainment_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_audio_entertainment
+        cocoms: App_totalDur_Audio_Entertainment
+      cut_off: 1440
+    - name: career_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_career
+        cocoms: App_totalDur_Career
+      cut_off: 1440
+    - name: communication_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_communication
+        cocoms: App_totalDur_Communication
+      cut_off: 1440
+    - name: creativity_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_creativity
+        cocoms: App_totalDur_Creativity
+      cut_off: 1440
+    - name: dating_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_dating
+        cocoms: App_totalDur_Dating
+      cut_off: 1440
+    - name: finance_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_finance
+        cocoms: App_totalDur_Finance
+      cut_off: 1440
+    - name: food_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_food
+        cocoms: App_totalDur_Food
+      cut_off: 1440
+    - name: gaming_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_gaming
+        cocoms: App_totalDur_Gaming
+      cut_off: 1440
+    - name: health_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_health
+        cocoms: App_totalDur_Health
+      cut_off: 1440
+    - name: internet_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_internet
+        cocoms: App_totalDur_Internet
+      cut_off: 1440
+    - name: knowledge_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_knowledge
+        cocoms: App_totalDur_Knowledge
+      cut_off: 1440
+    - name: news_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_news
+        cocoms: App_totalDur_News
+      cut_off: 1440
+    - name: orientation_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_orientation
+        cocoms: App_totalDur_Orientation
+      cut_off: 1440
+    - name: photo_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_photo
+        cocoms: App_totalDur_Photo
+      cut_off: 1440
+    - name: reading_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_reading
+        cocoms: App_totalDur_Reading
+      cut_off: 1440
+    - name: security_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_security
+        cocoms: App_totalDur_Security
+      cut_off: 1440
+    - name: settings_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_settings
+        cocoms: App_totalDur_Settings
+      cut_off: 1440
+    - name: shopping_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_shopping
+        cocoms: App_totalDur_Shopping
+      cut_off: 1440
+    - name: social_media_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_social_media
+        cocoms: App_totalDur_Social_Media
+      cut_off: 1440
+    - name: spirituality_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_spirituality
+        cocoms: App_totalDur_Spirituality
+      cut_off: 1440
+    - name: time_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_time
+        cocoms: App_totalDur_Time
+      cut_off: 1440
+    - name: tools_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_tools
+        cocoms: App_totalDur_Tools
+      cut_off: 1440
+    - name: transportation_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_transportation
+        cocoms: App_totalDur_Transportation
+      cut_off: 1440
+    - name: visual_entertainment
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_visual_entertainment
+        cocoms: App_totalDur_Visual_Entertainment
+      cut_off: 1440
+    - name: weather_apps
+      var_type: continuous
+      item_names:
+        zpid: app_total_dur_usage_weather
+        cocoms: App_totalDur_Weather
+      cut_off: 1440
+
+  gps_weather:
+    - name: id_col
+      item_names:
+        cocoms: username
+        zpid: user_id
+    - name: date
+      item_names:
+        cocoms: day
+        zpid: day
+
+    - name: time_home
+      var_type: continuous
+      item_names:
+        cocoms: GPS_totalDur_home
+        zpid: GPS_totalDur_home
+      cut_off: 1440
+    - name: time_work
+      var_type: continuous
+      item_names:
+        cocoms: GPS_totalDur_work
+        zpid: GPS_totalDur_work
+      cut_off: 1440
+    - name: daily_temperature
+      var_type: continuous
+      item_names:
+        cocoms: temp_home
+        zpid: temp_home
+    - name: daily_cloudcover
+      var_type: continuous
+      item_names:
+        cocoms: cloudcover_home
+        zpid: cloudcover_home
+    - name: daily_precipation
+      var_type: continuous
+      item_names:
+        cocoms: precip_home
+        zpid: precip_home
+    - name: daily_humidity
+      var_type: continuous
+      item_names:
+        cocoms: humidity_home
+        zpid: humidity_home
+    - name: daily_uv_index
+      var_type: continuous
+      item_names:
+        cocoms: uvindex_home
+        zpid: uvindex_home
+    - name: daily_sunrise
+      var_type: continuous
+      item_names:
+        cocoms: sunrise_home
+        zpid: sunrise_home
+    - name: daily_sunset
+      var_type: continuous
+      item_names:
+        cocoms: sunset_home
+        zpid: sunset_home
+    - name: total_distance
+      var_type: continuous
+      item_names:
+        cocoms: GPS_total_distanceCovered
+        zpid: GPS_total_distanceCovered
+      cut_off: 500000
+    - name: altitude_movement
+      var_type: continuous
+      item_names:
+        cocoms: GPS_total_altitude
+        zpid: GPS_total_altitude
+      cut_off: 5000
+    - name: time_foot
+      var_type: continuous
+      item_names:
+        cocoms: dur_on_foot
+        zpid: activity_total_duration_on_foot
+      cut_off: 1440
+    - name: time_still
+      var_type: continuous
+      item_names:
+        cocoms: dur_still
+        zpid: activity_total_duration_still
+      cut_off: 1440
+    - name: time_vehicle
+      var_type: continuous
+      item_names:
+        cocoms: dur_in_vehicle
+        zpid: activity_total_duration_in_vehicle
+      cut_off: 1440
+    - name: time_bicycle
+      var_type: continuous
+      item_names:
+        cocoms: dur_on_bicycle
+        zpid: activity_total_duration_on_bicycle
+      cut_off: 1440
+
+var_assignments:
+  pl:
+    - sociability
+    - assertiveness
+    - energy_level
+    - compassion
+    - respectfulness
+    - trust
+    - organization
+    - productiveness
+    - responsibility
+    - anxiety
+    - depression
+    - emotional_volatility
+    - intellectual_curiosity
+    - aesthetic_sensitivity
+    - creative_imagination
+    - sincerity
+    - fairness
+    - greed_avoidance
+    - modesty
+    - narcissistic_admiration
+    - narcissistic_rivalry
+    - intimate_loneliness
+    - relational_loneliness
+    - collective_loneliness
+    - self_esteem
+    - religiosity
+    - political_orientation
+    - social_status
+    - conspiracy_mentality
+    - trust_government
+    - economic_marginalization
+    - cultural_marginalization
+    - political_marginalization
+    - dominance_orientation
+    - egalitarianism
+    - aggressive_authoritarianism
+    - submissive_authoritarianism
+    - conventionalist_authoritarianism
+    - self_distraction
+    - active_coping
+    - denial
+    - substance_use
+    - emotional_support
+    - instrumental_support
+    - behavioral_disengagement
+    - venting
+    - positive_reframing
+    - planning
+    - humor
+    - acceptance
+    - religion
+    - self_blame
+    - gender_male
+    - gender_female
+    - gender_other
+    - age
+    - student
+    - full_employed
+    - part_employed
+    - self_employed
+    - unemployed
+    - education_level
+    - people_household
+    - living_alone
+    - living_partner
+    - living_children
+    - living_other
+    - relationship
+  srmc:
+    - number_interactions
+    - percentage_interactions
+    - ftf_interactions
+    - close_interactions
+    - work_conversations
+    - personal_conversations
+    - societal_conversations
+    - job_situations
+    - number_interaction_partners_mean
+    - number_interaction_partners_sd
+    - number_interaction_partners_min
+    - number_interaction_partners_max
+    - sleep_quality_mean
+    - sleep_quality_sd
+    - sleep_quality_min
+    - sleep_quality_max
+    - home_office
+    - weekday_responses
+    - early_day_responses
+    - number_responses
+    - percentage_responses
+  mac:
+    - power_distance
+    - uncertainty_avoidance
+    - individualism
+    - motivation_achievement
+    - shortterm_orientation
+    - indulgance
+    - religiosity_index
+    - political_rights
+    - civil_liberties
+    - democracy_index
+    - country_openness
+    - country_conscientiousness
+    - country_extraversion
+    - country_agreeableness
+    - country_neuroticism
+    - peacefulness
+    - social_support
+    - social_spending
+    - gender_gap
+    - population_estimates
+    - population_increases
+    - population_density
+    - young_population
+    - old_population
+    - migrant_stock
+    - number_refugees
+    - asylum_applicants
+    - asylum_approvals
+    - gdp_capita
+    - gdp_growth
+    - income_inequality
+    - poverty_rate
+    - stock_capitalization
+    - adult_unemployment
+    - youth_unemployment
+    - saving_rate
+    - inflation_rate
+    - investments
+    - household_income
+    - fertility_rate
+    - infant_mortality
+    - life_expectancy
+    - obesity_rates
+    - healthcare_expenditure
+    - access_water
+    - health_dalys
+    - health_ylls
+    - environmental_quality
+    - air_pollution
+    - covid_infections
+    - covid_vaccination
+    - daily_smokers
+    - alcohol_consumption
+  sens:
+    - smartphone_usage_mean
+    - smartphone_usage_sd
+    - smartphone_usage_min
+    - smartphone_usage_max
+    - smartphone_activation_mean
+    - smartphone_activation_sd
+    - smartphone_activation_min
+    - smartphone_activation_max
+    - phone_talking_mean
+    - phone_talking_sd
+    - phone_talking_min
+    - phone_talking_max
+    - first_usage_mean
+    - first_usage_sd
+    - first_usage_min
+    - first_usage_max
+    - last_usage_mean
+    - last_usage_sd
+    - last_usage_min
+    - last_usage_max
+    - audio_entertainment_apps_mean
+    - audio_entertainment_apps_sd
+    - audio_entertainment_apps_min
+    - audio_entertainment_apps_max
+    - career_apps_mean
+    - career_apps_sd
+    - career_apps_min
+    - career_apps_max
+    - communication_apps_mean
+    - communication_apps_sd
+    - communication_apps_min
+    - communication_apps_max
+    - creativity_apps_mean
+    - creativity_apps_sd
+    - creativity_apps_min
+    - creativity_apps_max
+    - dating_apps_mean
+    - dating_apps_sd
+    - dating_apps_min
+    - dating_apps_max
+    - finance_apps_mean
+    - finance_apps_sd
+    - finance_apps_min
+    - finance_apps_max
+    - food_apps_mean
+    - food_apps_sd
+    - food_apps_min
+    - food_apps_max
+    - gaming_apps_mean
+    - gaming_apps_sd
+    - gaming_apps_min
+    - gaming_apps_max
+    - health_apps_mean
+    - health_apps_sd
+    - health_apps_min
+    - health_apps_max
+    - internet_apps_mean
+    - internet_apps_sd
+    - internet_apps_min
+    - internet_apps_max
+    - knowledge_apps_mean
+    - knowledge_apps_sd
+    - knowledge_apps_min
+    - knowledge_apps_max
+    - news_apps_mean
+    - news_apps_sd
+    - news_apps_min
+    - news_apps_max
+    - orientation_apps_mean
+    - orientation_apps_sd
+    - orientation_apps_min
+    - orientation_apps_max
+    - photo_apps_mean
+    - photo_apps_sd
+    - photo_apps_min
+    - photo_apps_max
+    - reading_apps_mean
+    - reading_apps_sd
+    - reading_apps_min
+    - reading_apps_max
+    - security_apps_mean
+    - security_apps_sd
+    - security_apps_min
+    - security_apps_max
+    - settings_apps_mean
+    - settings_apps_sd
+    - settings_apps_min
+    - settings_apps_max
+    - shopping_apps_mean
+    - shopping_apps_sd
+    - shopping_apps_min
+    - shopping_apps_max
+    - social_media_apps_mean
+    - social_media_apps_sd
+    - social_media_apps_min
+    - social_media_apps_max
+    - spirituality_apps_mean
+    - spirituality_apps_sd
+    - spirituality_apps_min
+    - spirituality_apps_max
+    - time_apps_mean
+    - time_apps_sd
+    - time_apps_min
+    - time_apps_max
+    - tools_apps_mean
+    - tools_apps_sd
+    - tools_apps_min
+    - tools_apps_max
+    - transportation_apps_mean
+    - transportation_apps_sd
+    - transportation_apps_min
+    - transportation_apps_max
+    - visual_entertainment_mean
+    - visual_entertainment_sd
+    - visual_entertainment_min
+    - visual_entertainment_max
+    - weather_apps_mean
+    - weather_apps_sd
+    - weather_apps_min
+    - weather_apps_max
+    - time_home_mean
+    - time_home_sd
+    - time_home_min
+    - time_home_max
+    - time_work_mean
+    - time_work_sd
+    - time_work_min
+    - time_work_max
+    - daily_temperature_mean
+    - daily_temperature_sd
+    - daily_temperature_min
+    - daily_temperature_max
+    - daily_cloudcover_mean
+    - daily_cloudcover_sd
+    - daily_cloudcover_min
+    - daily_cloudcover_max
+    - daily_precipation_mean
+    - daily_precipation_sd
+    - daily_precipation_min
+    - daily_precipation_max
+    - daily_humidity_mean
+    - daily_humidity_sd
+    - daily_humidity_min
+    - daily_humidity_max
+    - daily_uv_index_mean
+    - daily_uv_index_sd
+    - daily_uv_index_min
+    - daily_uv_index_max
+    - daily_sunrise_mean
+    - daily_sunrise_sd
+    - daily_sunrise_min
+    - daily_sunrise_max
+    - daily_sunset_mean
+    - daily_sunset_sd
+    - daily_sunset_min
+    - daily_sunset_max
+    - total_distance_mean
+    - total_distance_sd
+    - total_distance_min
+    - total_distance_max
+    - altitude_movement_mean
+    - altitude_movement_sd
+    - altitude_movement_min
+    - altitude_movement_max
+    - time_foot_mean
+    - time_foot_sd
+    - time_foot_min
+    - time_foot_max
+    - time_still_mean
+    - time_still_sd
+    - time_still_min
+    - time_still_max
+    - time_vehicle_mean
+    - time_vehicle_sd
+    - time_vehicle_min
+    - time_vehicle_max
+    - time_bicycle_mean
+    - time_bicycle_sd
+    - time_bicycle_min
+    - time_bicycle_max
+
+  crit:
+    - pa_state
+    - na_state
+    - wb_state
+    - pa_trait
+    - na_trait
+    - wb_trait
+
+  other:
+    - unique_id
+    - studyWave
+    - country
+    - years_of_participation
