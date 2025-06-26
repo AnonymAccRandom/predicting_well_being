@@ -4,16 +4,16 @@
 execute_postprocessing: true
 
 methods_to_apply:
-  - condense_cv_results
-  - sanity_check_pred_vs_true
-  - create_descriptives
-  - conduct_significance_tests
+  #- condense_cv_results
+  #- sanity_check_pred_vs_true
+  #- create_descriptives
+  #- conduct_significance_tests
   - create_cv_results_plots
-  - create_shap_plots
-  - calculate_exp_lin_models
-  - create_lin_model_coefs_supp
-  - create_shap_values_supp  # this may take a while
-  - create_shap_ia_values_supp
+  #- create_shap_plots
+  #- calculate_exp_lin_models
+  #- create_lin_model_coefs_supp
+  #- create_shap_values_supp  # this may take a while
+  #- create_shap_ia_values_supp
 
 general:
   feature_combinations:
@@ -268,7 +268,7 @@ create_cv_results_plots:
   store_params:
     store: true
     dpi: 450
-    format: png  # png, pdf
+    format: pdf  # png, pdf
     name: cv_results
 
   titles:
@@ -376,15 +376,15 @@ create_cv_results_plots:
     all_in: 10015
 
 create_shap_plots:
-  models: [ randomforestregressor, elasticnet ]  # must be iterable
-  crits: [ wb_state, wb_trait]  # must be iterable
-  samples_to_include: [ all, selected]  # must be iterable
+  models: [ randomforestregressor]  # must be iterable
+  crits: [ wb_state ]  # must be iterable
+  samples_to_include: [ selected]  # must be iterable
   num_to_display: 6
 
   store_params:
     store: true
     dpi: 450
-    format: png # pdf, png
+    format: pdf # pdf, png
     name: beeswarm
 
   col_assignment:
@@ -411,10 +411,10 @@ create_shap_plots:
       - [ 3, 2 ]
 
   ia_values:
-    add: false
+    add: true
     position: [ 3, 2 ]
     feature_combination: srmc
-    short_feature_names: False
+    short_feature_names: True
     meta_stat_to_extract: top_interactions
     stat_to_extract: top_abs_interactions
     order_to_extract: 2

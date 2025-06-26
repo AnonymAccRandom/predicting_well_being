@@ -2,7 +2,7 @@
 # Furthermore, it includes the data specifications of each sample (items, scales, etc.).
 # All final results where generated with the current configuration.
 
-execute_preprocessing: true
+execute_preprocessing: false
 
 general:
   datasets_to_be_included: [ cocoesm, cocoms, cocout, emotions, pia, zpid ]
