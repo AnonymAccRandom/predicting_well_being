@@ -902,3 +902,36 @@ class DescriptiveStatistics:
                 self.desc_results_base_path, f"{dataset}_{base_filename}"
             )
             self.data_saver.save_excel(table, file_path)
+
+    def analyze_country_level_vars(self):
+        """
+        Analyzes country-level variables in self.full_data.
+        Extracts all columns starting with 'mac_', and computes:
+          - number of unique values
+          - min and max (i.e., range)
+
+        Note: Currently, the stats are based on the full dataframe. For specific analyses,
+        the number of unique values and the range may be a bit smaller.
+
+        Returns:
+            pd.DataFrame: Summary table with variable name, number of unique values, min, and max.
+        """
+        # Identify country-level variables
+        mac_data_cols = [col for col in self.full_data.columns if col.startswith("mac_")]
+        df_mac = self.full_data[mac_data_cols].copy()
+
+        # Create summary table
+        summary = []
+        for col in df_mac.columns:
+            non_na_series = df_mac[col].dropna()
+            summary.append({
+                "variable": col,
+                "num_unique": non_na_series.nunique(),
+                "min": non_na_series.min(),
+                "max": non_na_series.max()
+            })
+
+        summary_df = pd.DataFrame(summary)
+
+        return summary_df
+

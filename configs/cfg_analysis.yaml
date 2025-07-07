@@ -1,13 +1,13 @@
 # This configuration file enables the user to specify parameter so the ML-based analysis to be conducted.
 # All final results where generated with the current configuration.
 
-execute_analysis: false
+execute_analysis: true
 
 params: # adjusted by SLURM on the cluster, set parameters here to run a specific analysis locally
   prediction_model: elasticnet
   crit: wb_state
-  feature_combination: mac
-  samples_to_include: all
+  feature_combination: pl_npers
+  samples_to_include: selected
 
 methods_to_apply:
   - select_data
@@ -26,8 +26,8 @@ split_reps: true # Note: This makes only sense if use_mpi4py is false
 store_pred_and_true: true
 
 tests:
-  sample: false
-  sample_size: 120
+  sample: true
+  sample_size: 1000
 
 feature_combinations:
   - pl
@@ -64,14 +64,65 @@ feature_sample_combinations:
   pl_srmc_sens_fs: [ cocoms ]
   all_in_fs: [ cocoesm, cocout, cocoms, emotions, pia, zpid ]
 
+  # Feature configurations without personality features
+  pl_npers: [ emotions, cocout, cocoesm, cocoms ]
+  pl_srmc_npers: [ emotions, cocout, cocoesm, cocoms ]
+  pl_sens_npers: [ zpid, cocoms ]
+  pl_srmc_sens_npers: [ cocoms ]
+  pl_mac_npers: [ cocoesm ]
+  pl_srmc_mac_npers: [ cocoesm ]
+  all_in_npers: [ cocoesm, cocout, cocoms, emotions, pia, zpid ]
+
 # No control analyses needed for these combinations
 no_control_lst: [pl, srmc, sens, mac, all_in]
 
+# List of personality variable to exclude for the analysis without personality features
+pl_vars_to_exclude:
+  - pl_sociability
+  - pl_assertiveness
+  - pl_energy_level
+  - pl_compassion
+  - pl_respectfulness
+  - pl_trust
+  - pl_organization
+  - pl_productiveness
+  - pl_responsibility
+  - pl_anxiety
+  - pl_depression
+  - pl_emotional_volatility
+  - pl_intellectual_curiosity
+  - pl_aesthetic_sensitivity
+  - pl_creative_imagination
+  - pl_sincerity
+  - pl_fairness
+  - pl_greed_avoidance
+  - pl_modesty
+  - pl_narcissistic_admiration
+  - pl_narcissistic_rivalry
+  - pl_intimate_loneliness
+  - pl_relational_loneliness
+  - pl_collective_loneliness
+  - pl_self_esteem
+  - pl_self_distraction
+  - pl_active_coping
+  - pl_denial
+  - pl_substance_use
+  - pl_emotional_support
+  - pl_instrumental_support
+  - pl_behavioral_disengagement
+  - pl_venting
+  - pl_positive_reframing
+  - pl_planning
+  - pl_humor
+  - pl_acceptance
+  - pl_religion
+  - pl_self_blame
+
 cv:  # 10x10x10 CV in all reported analyses, can be adjusted for testing
-  num_inner_cv: 10
+  num_inner_cv: 10 # 10
   verbose_inner_cv: 0
-  num_outer_cv: 10
-  num_reps: 10
+  num_outer_cv: 10 # 10
+  num_reps: 10 # 10
   id_grouping_col: other_unique_id
   cache_pipe: false  # not improving performance
   warm_start: false  # not improving performance
@@ -88,7 +139,7 @@ crit_available: # As not all criteria are available for all samples
   na_trait: [ cocoesm, cocout, cocoms, pia, zpid ]
 
 imputation:
-  num_imputations: 5
+  num_imputations: 5  # 5
   max_iter: 40  # may be adjusted for testing, as this takes a while
   conv_thresh: 0.05  # only relevant for the non-linear imputer
   tree_max_depth: 10  # only relevant for the non-linear imputer
@@ -98,6 +149,9 @@ imputation:
   pmm_k: 5
   country_grouping_col: other_country
   years_col: other_years_of_participation
+  add_study_var: true  # If true, adds binary columns for each study
+  evaluate_robustness: false  # If true, check imputation performance (based on hold-out data)
+  holdout_fractions: [0.1, 0.3, 0.5, 0.8]
 
 scoring_metric:
   inner_cv_loop:  # For optimizing hyperparameters

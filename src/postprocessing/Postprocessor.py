@@ -281,6 +281,8 @@ class Postprocessor:
         desc_cfg = self.cfg_postprocessing["create_descriptives"]
         var_table_cfg = desc_cfg["m_sd_table"]
 
+        self.descriptives_creator.analyze_country_level_vars()
+
         self.descriptives_creator.create_m_sd_var_table(
             vars_to_include=var_table_cfg["vars_to_include"],
             binary_stats_to_calc=var_table_cfg["bin_agg_lst"],
