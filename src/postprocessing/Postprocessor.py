@@ -2,6 +2,7 @@ import os
 
 from src.postprocessing.CVResultProcessor import CVResultProcessor
 from src.postprocessing.DescriptiveStatistics import DescriptiveStatistics
+from src.postprocessing.InvarianceTester import InvarianceTester
 from src.postprocessing.LinearRegressor import LinearRegressor
 from src.postprocessing.ResultPlotter import ResultPlotter
 from src.postprocessing.ShapProcessor import ShapProcessor
@@ -154,6 +155,10 @@ class Postprocessor:
             cfg_preprocessing=self.cfg_preprocessing,
             cfg_postprocessing=self.cfg_postprocessing,
             plotter=self.plotter,
+        )
+        self.invariance_tester = InvarianceTester(
+            cfg_preprocessing=self.cfg_preprocessing,
+            cfg_postprocessing=self.cfg_postprocessing,
         )
 
     def apply_methods(self) -> None:
@@ -360,6 +365,12 @@ class Postprocessor:
         """Conducts significance tests to compare models and compare predictor classes."""
 
         self.significance_testing.significance_testing()
+
+    def test_measurement_invariance(self) -> None:
+        """Tests measurement invariance across countries and datasets"""
+        self.invariance_tester.load_data()
+        self.invariance_tester.test_invariance_across_countries()
+        # self.invariance_tester.test_invariance_across_datasets()
 
     def create_cv_results_plots(self) -> None:
         """Creates a bar plot summarizing CV results for the analyses specified."""

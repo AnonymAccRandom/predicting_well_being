@@ -233,6 +233,8 @@ class CocomsPreprocessor(BasePreprocessor):
         df_states = self.create_relationship(df_states=df_states)
         df_states = self.adjust_number_interactions_col(df_states=df_states)
 
+        df_states["country"] = "germany"
+
         return df_states
 
     def create_close_interactions(self, df_states: pd.DataFrame) -> pd.DataFrame:

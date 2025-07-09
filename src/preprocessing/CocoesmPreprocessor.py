@@ -145,6 +145,8 @@ class CocoesmPreprocessor(BasePreprocessor):
             pd.DataFrame: The modified DataFrame after applying dataset-specific processing.
         """
         df_states = self._create_relationship(df_states=df_states)
+        df_states = df_states.rename(columns={"country_esm": "country"})
+
         return df_states
 
     def _create_relationship(self, df_states: pd.DataFrame) -> pd.DataFrame:
@@ -204,24 +206,5 @@ class CocoesmPreprocessor(BasePreprocessor):
             pd.DataFrame: The modified DataFrame after applying post-processing.
         """
         df = df.merge(self.relationship, on=self.raw_esm_id_col, how="left")
-        df = self.fill_country_nans(df)
         return df
 
-    def fill_country_nans(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fills missing values in the `country` column using the corresponding values from the `country_esm` column.
-
-        Args:
-            df: The DataFrame containing both trait-level and state-level country information.
-
-        Returns:
-            pd.DataFrame: The DataFrame with missing `country` values filled.
-        """
-        state_country_col = self.cfg_preprocessing["general"]["country_col"]["cocoesm"][
-            "state"
-        ]
-        trait_country_col = self.cfg_preprocessing["general"]["country_col"]["cocoesm"][
-            "trait"
-        ]
-        df[trait_country_col] = df[trait_country_col].fillna(df[state_country_col])
-        return df

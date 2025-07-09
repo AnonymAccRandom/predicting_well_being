@@ -1,7 +1,7 @@
 # This configuration file enables the user to specify parameter so the ML-based analysis to be conducted.
 # All final results where generated with the current configuration.
 
-execute_analysis: true
+execute_analysis: false
 
 params: # adjusted by SLURM on the cluster, set parameters here to run a specific analysis locally
   prediction_model: elasticnet
