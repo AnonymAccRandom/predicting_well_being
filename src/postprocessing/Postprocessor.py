@@ -1,4 +1,8 @@
 import os
+import re
+from typing import Union
+
+import pandas as pd
 
 from src.postprocessing.CVResultProcessor import CVResultProcessor
 from src.postprocessing.DescriptiveStatistics import DescriptiveStatistics
@@ -231,6 +235,7 @@ class Postprocessor:
             )
             self.data_saver.save_json(main_nnse_diff_dct, nnse_diff_path)
 
+        """
         # Compute percentages of performance increase
         perf_increase_cfg = cfg_condense_results["perf_increase"]
         perf_increase_dct = create_defaultdict(5, dict)
@@ -258,12 +263,13 @@ class Postprocessor:
                 self.cv_shap_results_path, perf_increase_cfg["filename"]
             )
             self.data_saver.save_json(perf_increase_dct, perf_inc_path)
+        """
 
         # Creates Excel tables
         for crit, crit_vals in cv_results_dct.items():
             for samples_to_include, samples_to_include_vals in crit_vals.items():
-                for nnse_analysis in [True, False]:
-                    if nnse_analysis and samples_to_include == "control":
+                for supp_analysis in [True, False]:
+                    if supp_analysis and samples_to_include == "control":
                         continue
 
                     data_for_table = merge_M_SD_in_dct(samples_to_include_vals)
@@ -273,7 +279,7 @@ class Postprocessor:
                         samples_to_include=samples_to_include,
                         data=data_for_table,
                         output_dir=self.cv_shap_results_path,
-                        nnse_analysis=nnse_analysis,
+                        supp_analysis=supp_analysis,
                         include_empty_col_between_models=True,
                     )
 
@@ -369,8 +375,12 @@ class Postprocessor:
     def test_measurement_invariance(self) -> None:
         """Tests measurement invariance across countries and datasets"""
         self.invariance_tester.load_data()
-        self.invariance_tester.test_invariance_across_countries()
-        # self.invariance_tester.test_invariance_across_datasets()
+
+        mi_datasets = self.invariance_tester.test_invariance_across_datasets()
+        self._save_nested_results(mi_datasets, "../results/mi_across_datasets")
+
+        mi_countries = self.invariance_tester.test_invariance_across_countries()
+        self._save_nested_results(mi_countries, "../results/mi_across_countries")
 
     def create_cv_results_plots(self) -> None:
         """Creates a bar plot summarizing CV results for the analyses specified."""
@@ -479,3 +489,93 @@ class Postprocessor:
             file_name=filename,
             output_base_dir=output_dir,
         )
+
+    def _save_nested_results(  # keep name for compatibility
+            self,
+            results: dict[str, Union[pd.DataFrame, dict]],
+            base_result_dir: str | os.PathLike,
+            *,
+            flatten: bool = True,  # True → filenames; False → folders
+            file_ext: str = "xlsx",  # "xlsx", "csv", …
+            sep: str = "__",  # joiner for flat filenames
+    ) -> None:
+        """
+        Save every DataFrame in *results* to *base_result_dir*.
+
+        Two output styles
+        -----------------
+        • flatten=True   →  "<key1>__<key2>.xlsx" (all files live in base_result_dir)
+        • flatten=False  →  "<key1>/<key2>.xlsx"  (dict mirrored as sub-folders)
+
+        Args
+        ----
+        results
+            Nested dictionary whose leaves are ``pd.DataFrame`` objects.
+        base_result_dir
+            Directory in which files (and, in hierarchy mode, sub-folders) are written.
+        flatten
+            Choose filename concatenation (True) or folder hierarchy (False).
+        file_ext
+            Extension/writer to use.  Supported out of the box: "xlsx" and "csv".
+        sep
+            Separator between keys when *flatten* is True.
+        """
+
+        base_dir = os.fspath(base_result_dir)
+        os.makedirs(base_dir, exist_ok=True)
+
+        def _safe(key: str) -> str:
+            """Replace path-unsafe characters with underscores."""
+            return re.sub(r"[^\w\-\.]", "_", str(key))
+
+        # ------------------------------------------------------------------#
+        # writer dispatch (extend if you need more formats)                  #
+        # ------------------------------------------------------------------#
+        def _write(df: pd.DataFrame, path: str) -> None:
+            if file_ext == "xlsx":
+                self.data_saver.save_excel(df, path)
+            elif file_ext == "csv":
+                self.data_saver.save_csv(df, path)
+            else:
+                raise ValueError(
+                    f"Unsupported file_ext '{file_ext}' for pd.DataFrame as input. "
+                    "Add a writer for it in _save_nested_results()."
+                )
+
+        # ------------------------------------------------------------------#
+        # traversal – two styles depending on 'flatten'                      #
+        # ------------------------------------------------------------------#
+        def _walk_flat(subtree: dict, key_chain: list[str]) -> None:
+            for key, val in subtree.items():
+                new_chain = key_chain + [_safe(key)]
+                if isinstance(val, pd.DataFrame):
+                    filename = sep.join(new_chain) + f".{file_ext.lstrip('.')}"
+                    _write(val, os.path.join(base_dir, filename))
+                elif isinstance(val, dict):
+                    _walk_flat(val, new_chain)
+                else:
+                    raise TypeError(
+                        f"Unsupported type at {'/'.join(new_chain)}: "
+                        f"{type(val).__name__}"
+                    )
+
+        def _walk_nested(subtree: dict, current_path: str) -> None:
+            for key, val in subtree.items():
+                safe_key = _safe(key)
+                next_path = os.path.join(current_path, safe_key)
+                if isinstance(val, pd.DataFrame):
+                    os.makedirs(current_path, exist_ok=True)
+                    _write(val, next_path + f".{file_ext.lstrip('.')}")
+                elif isinstance(val, dict):
+                    os.makedirs(next_path, exist_ok=True)
+                    _walk_nested(val, next_path)
+                else:
+                    raise TypeError(
+                        f"Unsupported type at {next_path}: {type(val).__name__}"
+                    )
+
+        # start traversal
+        if flatten:
+            _walk_flat(results, [])
+        else:
+            _walk_nested(results, base_dir)

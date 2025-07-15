@@ -31,13 +31,23 @@ general:
         pl_srmc_mac: "Personal + Situational (ESM) + Societal"
         all_in: "Personal + Situational (ESM) + Situational (Sensing) + Societal"
       supp:
-        pl_nnse: "Personal without neuroticism facets and self-esteem"
-        pl_srmc_nnse: "Personal + Situational (ESM) without neuroticism facets and self-esteem"
-        pl_sens_nnse: "Personal + Situational (Sensing) without neuroticism facets and self-esteem"
-        pl_srmc_sens_nnse: "Personal + Situational (ESM) + Situational (Sensing) without neuroticism facets and self-esteem"
-        pl_mac_nnse: "Personal + Societal without neuroticism facets and self-esteem"
-        pl_srmc_mac_nnse: "Personal + Situational (ESM) + Societal without neuroticism facets and self-esteem"
-        all_in_nnse: "Personal + Situational (ESM) + Situational (Sensing) + Societal without neuroticism facets and self-esteem"
+        #pl_nnse: "Personal without neuroticism facets and self-esteem"
+        #pl_srmc_nnse: "Personal + Situational (ESM) without neuroticism facets and self-esteem"
+        #pl_sens_nnse: "Personal + Situational (Sensing) without neuroticism facets and self-esteem"
+        #pl_srmc_sens_nnse: "Personal + Situational (ESM) + Situational (Sensing) without neuroticism facets and self-esteem"
+        #pl_mac_nnse: "Personal + Societal without neuroticism facets and self-esteem"
+        #pl_srmc_mac_nnse: "Personal + Situational (ESM) + Societal without neuroticism facets and self-esteem"
+        #all_in_nnse: "Personal + Situational (ESM) + Situational (Sensing) + Societal without neuroticism facets and self-esteem"
+
+        # Without personality
+        pl_npers: "Personal without personality variables"
+        pl_srmc_npers: "Personal + Situational (ESM) without personality variables"
+        pl_sens_npers: "Personal + Situational (Sensing) without personality variables"
+        pl_srmc_sens_npers: "Personal + Situational (ESM) + Situational (Sensing) without personality variables"
+        pl_mac_npers: "Personal + Societal without personality variables"
+        pl_srmc_mac_npers: "Personal + Situational (ESM) + Societal without personality variables"
+        all_in_npers: "Personal + Situational (ESM) + Situational (Sensing) + Societal without personality variables"
+
       ia_values:
         srmc_ia_values: "Situational (ESM): Interaction Values"
 
@@ -78,7 +88,7 @@ general:
 
   data_paths:
     base_path: "../results/"
-    main_results: run_2012  # This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
+    main_results: cluster_results  # This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
     ia_values: ia_values_0912
     sig_tests: sig_tests_1312
     pred_vs_true: mac_pred_true
@@ -135,7 +145,7 @@ condense_cv_results:
     file_base_name: cv_results
     result_strs:
       main: main
-      nnse: nnse
+      supp: npers  # nnse, npers, ...
     mapping:
       feature_combination: "Predictor configuration"
       model: "Prediction model"
@@ -377,7 +387,8 @@ create_cv_results_plots:
     all_in: 10015
 
 create_shap_plots:
-  models: [ randomforestregressor]  # must be iterable
+  analysis: main   # main, supp
+  models: [ randomforestregressor ]  # must be iterable
   crits: [ wb_state ]  # must be iterable
   samples_to_include: [ selected]  # must be iterable
   num_to_display: 6
@@ -389,9 +400,9 @@ create_shap_plots:
     name: beeswarm
 
   col_assignment:
-    first_col: [pl, srmc, sens, mac]
-    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
-    third_col: [pl_srmc_mac, all_in]
+    first_col: [pl, srmc, sens, mac]  # pl_npers # [pl, srmc, sens, mac]
+    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac] # pl_srcm_npers, pl_sens_npers, pl_srmc_sens_npers, pl_mac_npers # [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
+    third_col: [pl_srmc_mac, all_in] # pl_srmc_mac_npers, all_in_npers # [pl_srmc_mac, all_in]
 
   figure_params:
     num_rows: 4
@@ -412,7 +423,7 @@ create_shap_plots:
       - [ 3, 2 ]
 
   ia_values:
-    add: true
+    add: false
     position: [ 3, 2 ]
     feature_combination: srmc
     short_feature_names: True
@@ -480,75 +491,310 @@ create_supp_files:
   shap_ia_output_filename: run_2012_shap_ia_values
 
 measurement_invariance:
+  general:
+    min_samples_per_country: [200, 150, 100] # to iterate over
+    to_include:
+      - state_wb_items
+      - trait_wb_items
+      - trait_features
+
   across_datasets:  # mirror structure from preprocessing
-    personality:
+    trait_features:
       # BFI2
       - name: sociability
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_1_bfi: bfi2_1, Q1_16_bfi: bfi2_16, Q1_31_bfi: bfi2_31, Q1_46_bfi: bfi2_46}
+          pia: {bfi2_1: bfi2_1, bfi2_16: bfi2_16, bfi2_31: bfi2_31, bfi2_46: bfi2_46}
+          cocoms: {bfi_e01: bfi2_1, bfi_e04: bfi2_16, bfi_e07: bfi2_31, bfi_e10: bfi2_46}
+
       - name: assertiveness
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_6_bfi: bfi2_6, Q1_21_bfi: bfi2_21, Q1_36_bfi: bfi2_36, Q1_51_bfi: bfi2_51}
+          pia: {bfi2_6: bfi2_6, bfi2_21: bfi2_21, bfi2_36: bfi2_36, bfi2_51: bfi2_51}
+          cocoms: {bfi_e02: bfi2_6, bfi_e05: bfi2_21, bfi_e08: bfi2_36, bfi_e11: bfi2_51}
+
       - name: energy_level
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_11_bfi: bfi2_11, Q1_26_bfi: bfi2_26, Q1_41_bfi: bfi2_41, Q1_56_bfi: bfi2_56}
+          pia: {bfi2_11: bfi2_11, bfi2_26: bfi2_26, bfi2_41: bfi2_41, bfi2_56: bfi2_56}
+          cocoms: {bfi_e03: bfi2_11, bfi_e06: bfi2_26, bfi_e09: bfi2_41, bfi_e12: bfi2_56}
+
       - name: compassion
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_2_bfi: bfi2_2, Q1_17_bfi: bfi2_17, Q1_32_bfi: bfi2_32, Q1_47_bfi: bfi2_47}
+          pia: {bfi2_2: bfi2_2, bfi2_17: bfi2_17, bfi2_32: bfi2_32, bfi2_47: bfi2_47}
+          cocoms: {bfi_a01: bfi2_2, bfi_a04: bfi2_17, bfi_a07: bfi2_32, bfi_a10: bfi2_47}
+
       - name: respectfulness
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_7_bfi: bfi2_7, Q1_22_bfi: bfi2_22, Q1_37_bfi: bfi2_37, Q1_52_bfi: bfi2_52}
+          pia: {bfi2_7: bfi2_7, bfi2_22: bfi2_22, bfi2_37: bfi2_37, bfi2_52: bfi2_52}
+          cocoms: {bfi_a02: bfi2_7, bfi_a05: bfi2_22, bfi_a08: bfi2_37, bfi_a11: bfi2_52}
+
       - name: trust
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_12_bfi: bfi2_12, Q1_27_bfi: bfi2_27, Q1_42_bfi: bfi2_42, Q1_57_bfi: bfi2_57}
+          pia: {bfi2_12: bfi2_12, bfi2_27: bfi2_27, bfi2_42: bfi2_42, bfi2_57: bfi2_57}
+          cocoms: {bfi_a03: bfi2_12, bfi_a06: bfi2_27, bfi_a09: bfi2_42, bfi_a12: bfi2_57}
+
       - name: organization
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_3_bfi: bfi2_3, Q1_18_bfi: bfi2_18, Q1_33_bfi: bfi2_33, Q1_48_bfi: bfi2_48}
+          pia: {bfi2_3: bfi2_3, bfi2_18: bfi2_18, bfi2_33: bfi2_33, bfi2_48: bfi2_48}
+          cocoms: {bfi_c01: bfi2_3, bfi_c04: bfi2_18, bfi_c07: bfi2_33, bfi_c10: bfi2_48}
+
       - name: productiveness
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_8_bfi: bfi2_8, Q1_23_bfi: bfi2_23, Q1_38_bfi: bfi2_38, Q1_53_bfi: bfi2_53}
+          pia: {bfi2_8: bfi2_8, bfi2_23: bfi2_23, bfi2_38: bfi2_38, bfi2_53: bfi2_53}
+          cocoms: {bfi_c02: bfi2_8, bfi_c05: bfi2_23, bfi_c08: bfi2_38, bfi_c11: bfi2_53}
+
       - name: responsibility
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_13_bfi: bfi2_13, Q1_28_bfi: bfi2_28, Q1_43_bfi: bfi2_43, Q1_58_bfi: bfi2_58}
+          pia: {bfi2_13: bfi2_13, bfi2_28: bfi2_28, bfi2_43: bfi2_43, bfi2_58: bfi2_58}
+          cocoms: {bfi_c03: bfi2_13, bfi_c06: bfi2_28, bfi_c09: bfi2_43, bfi_c12: bfi2_58}
+
       - name: anxiety
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_4_bfi: bfi2_4, Q1_19_bfi: bfi2_19, Q1_34_bfi: bfi2_34, Q1_49_bfi: bfi2_49}
+          pia: {bfi2_4: bfi2_4, bfi2_19: bfi2_19, bfi2_34: bfi2_34, bfi2_49: bfi2_49}
+          cocoms: {bfi_n01: bfi2_4, bfi_n04: bfi2_19, bfi_n07: bfi2_34, bfi_n10: bfi2_49}
+
       - name: depression
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_9_bfi: bfi2_9, Q1_24_bfi: bfi2_24, Q1_39_bfi: bfi2_39, Q1_54_bfi: bfi2_54}
+          pia: {bfi2_9: bfi2_9, bfi2_24: bfi2_24, bfi2_39: bfi2_39, bfi2_54: bfi2_54}
+          cocoms: {bfi_n02: bfi2_9, bfi_n05: bfi2_24, bfi_n08: bfi2_39, bfi_n11: bfi2_54}
+
       - name: emotional_volatility
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_14_bfi: bfi2_14, Q1_29_bfi: bfi2_29, Q1_44_bfi: bfi2_44, Q1_59_bfi: bfi2_59}
+          pia: {bfi2_14: bfi2_14, bfi2_29: bfi2_29, bfi2_44: bfi2_44, bfi2_59: bfi2_59}
+          cocoms: {bfi_n03: bfi2_14, bfi_n06: bfi2_29, bfi_n09: bfi2_44, bfi_n12: bfi2_59}
+
       - name: intellectual_curiosity
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_10_bfi: bfi2_10, Q1_25_bfi: bfi2_25, Q1_40_bfi: bfi2_40, Q1_55_bfi: bfi2_55}
+          pia: {bfi2_10: bfi2_10, bfi2_25: bfi2_25, bfi2_40: bfi2_40, bfi2_55: bfi2_55}
+          cocoms: {bfi_o02: bfi2_10, bfi_o05: bfi2_25, bfi_o08: bfi2_40, bfi_o11: bfi2_55}
+
       - name: aesthetic_sensitivity
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+        mapping:
+          cocout: {Q1_5_bfi: bfi2_5, Q1_20_bfi: bfi2_20, Q1_35_bfi: bfi2_35, Q1_50_bfi: bfi2_50}
+          pia: {bfi2_5: bfi2_5, bfi2_20: bfi2_20, bfi2_35: bfi2_35, bfi2_50: bfi2_50}
+          cocoms: {bfi_o01: bfi2_5, bfi_o04: bfi2_20, bfi_o07: bfi2_35, bfi_o10: bfi2_50}
+
       - name: creative_imagination
         to_include: ["cocout", "pia", "cocoesm", "cocoms"]
-      # HEXACO-60
+        mapping:
+          cocout: {Q1_15_bfi: bfi2_15, Q1_30_bfi: bfi2_30, Q1_45_bfi: bfi2_45, Q1_60_bfi: bfi2_60}
+          pia: {bfi2_15: bfi2_15, bfi2_30: bfi2_30, bfi2_45: bfi2_45, bfi2_60: bfi2_60}
+          cocoms: {bfi_o03: bfi2_15, bfi_o06: bfi2_30, bfi_o09: bfi2_45, bfi_o12: bfi2_60}
+
+      # ────────────────────── HEXACO-60 ──────────────────────
       - name: sincerity
         to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocoms: {hex_60_01: hex60_1, hex_60_05: hex60_5, hex_60_09: hex60_9}
+
       - name: fairness
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-      - name: greed_avoidance
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-      - name: modesty
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-      # NARQ-S
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocoms: {hex_60_02: hex60_2, hex_60_06: hex60_6, hex_60_10: hex60_10}
+
+      # ────────────────────── NARQ-S ──────────────────────
       - name: narcissistic_admiration
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout:   {narqs_2: narq_2, narqs_4: narq_4, narqs_5: narq_5}
+          emotions: {narqs_2: narq_2, narqs_4: narq_4, narqs_5: narq_5}
+
       - name: narcissistic_rivalry
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-      # UCLA-S
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout:   {narqs_1: narq_1, narqs_3: narq_3, narqs_6: narq_6}
+          emotions: {narqs_1: narq_1, narqs_3: narq_3, narqs_6: narq_6}
+
+      # ────────────────────── UCLA Loneliness Scale (UCLA-S) ──────────────────────
       - name: intimate_loneliness
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout:   {uls_1: loneliness_1, uls_4: loneliness_4, uls_8: loneliness_8}
+          emotions: {uls_1: loneliness_1, uls_4: loneliness_4, uls_8: loneliness_8}
+
       - name: relational_loneliness
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout:   {uls_3: loneliness_3, uls_5: loneliness_5, uls_7: loneliness_7}
+          emotions: {uls_3: loneliness_3, uls_5: loneliness_5, uls_7: loneliness_7}
+
       - name: collective_loneliness
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-      # CMQ
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout:   {uls_2: loneliness_2, uls_6: loneliness_6, uls_9: loneliness_9}
+          emotions: {uls_2: loneliness_2, uls_6: loneliness_6, uls_9: loneliness_9}
+
+      # ────────────────────── CMQ ──────────────────────
       - name: conspiracy_mentality
-        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
-    # Remembered well-being
-    wb_trait:
-      - name: pa_trait
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+        mapping:
+          cocout: { cmq_1: cmq_1, cmq_2: cmq_2, cmq_3: cmq_3, cmq_4: cmq_4, cmq_5: cmq_5 }
+
+      # ─────────────── Trait well-being ───────────────
+    trait_wb_items:
+      - name: pa_trait  # TODO verify with codeboooks!
         to_include: ["cocout", "cocoesm", "cocoms"]
-      - name: na_trait
-        to_include: [ "pia", "cocoesm", "cocoms" ]
-    # Current well-being
-    wb_state:
+        mapping:
+          cocout:  {awb_3: panasx_4, awb_5: panasx_5, awb_6: panasx_6}
+          cocoesm: {panasx_4: panasx_4, panasx_5: panasx_5, panasx_6: panasx_6}
+          cocoms:  {panasx_4: panasx_4, panasx_5: panasx_5, panasx_6: panasx_6}
+
+      - name: na_trait  # TODO verify with codeboooks!
+        to_include: ["pia", "cocoesm", "cocoms"]
+        mapping:
+          pia:     {trait_angry: panasx_1, trait_sad: panasx_2, panas20: panasx_3}
+          cocoesm: {panasx_1: panasx_1, panasx_2: panasx_2, panasx_3: panasx_3}
+          cocoms:  {panasx_1: panasx_1, panasx_2: panasx_2, panasx_3: panasx_3}
+
+      # ─────────────── State well-being ───────────────
+    state_wb_items:
       - name: pa_state
         to_include: ["cocoesm", "cocoms"]
+        mapping:
+          cocoesm: {state_pa1: state_pa1, state_pa2: state_pa2, state_pa3: state_pa3}
+          cocoms:  {state_pa1: state_pa1, state_pa2: state_pa2, state_pa3: state_pa3}
+
       - name: na_state
-        to_include: [ "pia", "cocoesm", "cocoms" ]
+        to_include: ["pia", "cocoesm", "cocoms"]
+        mapping:
+          pia:     {angry: state_na1, sad: state_na2, afraid: state_na3}
+          cocoesm: {state_na1: state_na1, state_na2: state_na2, state_na3: state_na3}
+          cocoms:  {state_na1: state_na1, state_na2: state_na2, state_na3: state_na3}
+
+
 
   across_countries:
-    min_samples: [50, 100, 200] # to iterate over
+    trait_features:
+      # ───────────── Personality facets ─────────────
+      - name: sociability
+        item_names: [bfi2_1, bfi2_16, bfi2_31, bfi2_46]
+
+      - name: assertiveness
+        item_names: [bfi2_6, bfi2_21, bfi2_36, bfi2_51]
+
+      - name: energy_level
+        item_names: [bfi2_11, bfi2_26, bfi2_41, bfi2_56]
+
+      - name: compassion
+        item_names: [bfi2_2, bfi2_17, bfi2_32, bfi2_47]
+
+      - name: respectfulness
+        item_names: [bfi2_7, bfi2_22, bfi2_37, bfi2_52]
+
+      - name: trust
+        item_names: [bfi2_12, bfi2_27, bfi2_42, bfi2_57]
+
+      - name: organization
+        item_names: [bfi2_3, bfi2_18, bfi2_33, bfi2_48]
+
+      - name: productiveness
+        item_names: [bfi2_8, bfi2_23, bfi2_38, bfi2_53]
+
+      - name: responsibility
+        item_names: [bfi2_13, bfi2_28, bfi2_43, bfi2_58]
+
+      - name: anxiety
+        item_names: [bfi2_4, bfi2_19, bfi2_34, bfi2_49]
+
+      - name: depression
+        item_names: [bfi2_9, bfi2_24, bfi2_39, bfi2_54]
+
+      - name: emotional_volatility
+        item_names: [bfi2_14, bfi2_29, bfi2_44, bfi2_59]
+
+      - name: intellectual_curiosity
+        item_names: [bfi2_10, bfi2_25, bfi2_40, bfi2_55]
+
+      - name: aesthetic_sensitivity
+        item_names: [bfi2_5, bfi2_20, bfi2_35, bfi2_50]
+
+      - name: creative_imagination
+        item_names: [bfi2_15, bfi2_30, bfi2_45, bfi2_60]
+
+      # ───────────── HEXACO honesty–humility facets ─────────────
+      - name: sincerity
+        item_names: [hex60_1, hex60_5, hex60_9]
+
+      - name: fairness
+        item_names: [hex60_2, hex60_6, hex60_10]
+
+      - name: greed_avoidance
+        item_names: [hex60_3, hex60_7]
+
+      - name: modesty
+        item_names: [hex60_4, hex60_8]
+
+      # ───────────── Narcissism facets ─────────────
+      - name: narcissistic_admiration
+        item_names: [narq_2, narq_4, narq_5]
+
+      - name: narcissistic_rivalry
+        item_names: [narq_1, narq_3, narq_6]
+
+      # ───────────── Loneliness facets ─────────────
+      - name: intimate_loneliness
+        item_names: [loneliness_1, loneliness_4, loneliness_8]
+
+      - name: relational_loneliness
+        item_names: [loneliness_3, loneliness_5, loneliness_7]
+
+      - name: collective_loneliness
+        item_names: [loneliness_2, loneliness_6, loneliness_9]
+
+      # ───────────── Conspiracy ─────────────
+      - name: conspiracy_mentality
+        item_names: [cmq_1, cmq_2, cmq_3, cmq_4, cmq_5]
+
+      # ───────────── Social-dominance orientation ─────────────
+      - name: dominance_orientation
+        item_names: [sdo_1, sdo_2, sdo_3, sdo_4]
+
+      - name: egalitarianism
+        item_names: [sdo_5, sdo_6, sdo_7, sdo_8]
+
+      # ───────────── Authoritarianism facets ─────────────
+      - name: aggressive_authoritarianism
+        item_names: [ksa3_1, ksa3_2, ksa3_3, ksa3_4]
+
+      - name: submissive_authoritarianism
+        item_names: [ksa3_5, ksa3_6]
+
+      - name: conventionalist_authoritarianism
+        item_names: [ksa3_7, ksa3_8, ksa3_9]
+
+    # ─────────────── Trait well-being ───────────────
+    trait_wb_items:
+      - name: pa_trait
+        item_names: [panasx_4, panasx_5, panasx_6]
+      - name: na_trait
+        item_names: [panasx_1, panasx_2, panasx_3]
+    state_wb_items:
+      - name: pa_state
+        item_names: [ state_pa1, state_pa2, state_pa3 ]
+      - name: na_state
+        item_names: [ state_na1, state_na2, state_na3 ]

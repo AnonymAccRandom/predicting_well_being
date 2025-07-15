@@ -131,6 +131,7 @@ class CVResultProcessor:
 
         for root, _, files in os.walk(base_dir):
             if cv_results_filename in files:
+                print(root)
                 # These analyses are not included in the tables
                 if "pl_srmc_control" in root or "srmc_control" in root:
                     continue
@@ -265,7 +266,7 @@ class CVResultProcessor:
         samples_to_include: str,
         output_dir: str,
         include_empty_col_between_models: bool = True,
-        nnse_analysis: bool = False,
+        supp_analysis: bool = False,
     ) -> None:
         """
         Generates and saves a cross-validation (CV) results table as an Excel file.
@@ -287,11 +288,12 @@ class CVResultProcessor:
             samples_to_include: Subset of samples (e.g., "all").
             output_dir: Directory for saving the Excel file.
             include_empty_col_between_models: Whether to include an empty column between models for visual separation.
-            nnse_analysis: Whether to include only the supplementary (nnse) analysis. Defaults to False.
+            supp_analysis: Whether to include only the supplementary (nnse) analysis. Defaults to False.
+                This may be the analysis without personality or without neuroticism and self-esteem
         """
-        if nnse_analysis:
+        if supp_analysis:
             feature_combo_mapping = self.feature_combo_name_mapping_supp
-            result_str = self.result_table_cfg["result_strs"]["nnse"]
+            result_str = self.result_table_cfg["result_strs"]["supp"]
         else:
             feature_combo_mapping = self.feature_combo_name_mapping_main
             result_str = self.result_table_cfg["result_strs"]["main"]
@@ -328,17 +330,17 @@ class CVResultProcessor:
         # Custom order for metrics
         metric_order = list(self.metric_name_mapping.values())
         n_metrics = len(metric_order)
-        df_pivot.columns = pd.MultiIndex.from_tuples(
-            sorted(
-                df_pivot.columns,
-                key=lambda col: (
-                    col[0],
-                    metric_order.index(col[1])
-                    if col[1] in metric_order
-                    else len(metric_order),
-                ),
-            )
-        )
+        #df_pivot.columns = pd.MultiIndex.from_tuples(
+        #    sorted(
+        #        df_pivot.columns,
+        #        key=lambda col: (
+        #            col[0],
+        #            metric_order.index(col[1])
+        #            if col[1] in metric_order
+        #            else len(metric_order),
+        #        ),
+        #    )
+        #)
 
         if include_empty_col_between_models:
             empty_col = pd.Series([np.nan] * len(df_pivot), name=(" ", " "))
