@@ -6,8 +6,8 @@ execute_analysis: false
 params: # adjusted by SLURM on the cluster, set parameters here to run a specific analysis locally
   prediction_model: elasticnet
   crit: wb_state
-  feature_combination: pl_npers
-  samples_to_include: selected
+  feature_combination: sens
+  samples_to_include: all
 
 methods_to_apply:
   - select_data
