@@ -163,6 +163,7 @@ class Postprocessor:
         self.invariance_tester = InvarianceTester(
             cfg_preprocessing=self.cfg_preprocessing,
             cfg_postprocessing=self.cfg_postprocessing,
+            name_mapping=self.name_mapping,
         )
 
     def apply_methods(self) -> None:
@@ -235,35 +236,34 @@ class Postprocessor:
             )
             self.data_saver.save_json(main_nnse_diff_dct, nnse_diff_path)
 
-        """
-        # Compute percentages of performance increase
-        perf_increase_cfg = cfg_condense_results["perf_increase"]
-        perf_increase_dct = create_defaultdict(5, dict)
+        if cfg_condense_results["perf_increase"]["calculate"]:
 
-        for crit in perf_increase_cfg["crits"]:
-            for samples_to_include in perf_increase_cfg["samples_to_include"]:
-                for metric in perf_increase_cfg["metrics"]:
-                    for model in perf_increase_cfg["models"]:
-                        for fc_to_compare in perf_increase_cfg["fc_to_compare"]:
-                            perc_increase = (
-                                self.cv_result_processor.calculate_perc_increase(
-                                    cv_results=cv_results_dct[crit][samples_to_include],
-                                    metric=metric,
-                                    model=model,
-                                    feature_combos_to_compare=fc_to_compare,
-                                    decimals=perf_increase_cfg["decimals"],
+            perf_increase_cfg = cfg_condense_results["perf_increase"]
+            perf_increase_dct = create_defaultdict(5, dict)
+
+            for crit in perf_increase_cfg["crits"]:
+                for samples_to_include in perf_increase_cfg["samples_to_include"]:
+                    for metric in perf_increase_cfg["metrics"]:
+                        for model in perf_increase_cfg["models"]:
+                            for fc_to_compare in perf_increase_cfg["fc_to_compare"]:
+                                perc_increase = (
+                                    self.cv_result_processor.calculate_perc_increase(
+                                        cv_results=cv_results_dct[crit][samples_to_include],
+                                        metric=metric,
+                                        model=model,
+                                        feature_combos_to_compare=fc_to_compare,
+                                        decimals=perf_increase_cfg["decimals"],
+                                    )
                                 )
-                            )
-                            fc_to_compare_str = ", ".join(fc_to_compare)
-                            perf_increase_dct[crit][samples_to_include][metric][model][
-                                fc_to_compare_str
-                            ] = {"% increase": perc_increase}
-        if perf_increase_cfg["store"]:
-            perf_inc_path = os.path.join(
-                self.cv_shap_results_path, perf_increase_cfg["filename"]
-            )
-            self.data_saver.save_json(perf_increase_dct, perf_inc_path)
-        """
+                                fc_to_compare_str = ", ".join(fc_to_compare)
+                                perf_increase_dct[crit][samples_to_include][metric][model][
+                                    fc_to_compare_str
+                                ] = {"% increase": perc_increase}
+            if perf_increase_cfg["store"]:
+                perf_inc_path = os.path.join(
+                    self.cv_shap_results_path, perf_increase_cfg["filename"]
+                )
+                self.data_saver.save_json(perf_increase_dct, perf_inc_path)
 
         # Creates Excel tables
         for crit, crit_vals in cv_results_dct.items():
@@ -283,16 +283,30 @@ class Postprocessor:
                         include_empty_col_between_models=True,
                     )
 
-    def sanity_check_pred_vs_true(self) -> None:
+    def prediction_sanity_checks(self) -> None:
         """Sanity checks the predictions vs. the true values for selected analysis and plots the results."""
-        self.sanity_checker.sanity_check_pred_vs_true()
+        full_data = self.data_loader.read_pkl(os.path.join(
+            self.cfg_preprocessing["general"]["path_to_preprocessed_data"],
+            self.cfg_preprocessing["general"]["full_data_filename"])
+        )
+        self.sanity_checker.sanity_check_mac(full_data)
+        self.sanity_checker.sanity_check_pred_vs_true(
+            full_data,
+            groupby="country_group"
+        )
 
     def create_descriptives(self) -> None:
         """Creates tables containing descriptives (e.g., M, SD, correlations, reliability) for the datasets."""
         desc_cfg = self.cfg_postprocessing["create_descriptives"]
         var_table_cfg = desc_cfg["m_sd_table"]
 
-        self.descriptives_creator.analyze_country_level_vars()
+        country_stats = self.descriptives_creator.analyze_country_level_vars()
+        if desc_cfg["country_vars"]["store"]:
+            file_path_country = os.path.join(
+                self.descriptives_creator.desc_results_base_path,
+                desc_cfg["country_vars"]["filename"],
+            )
+            self.data_saver.save_excel(country_stats, file_path_country)
 
         self.descriptives_creator.create_m_sd_var_table(
             vars_to_include=var_table_cfg["vars_to_include"],
@@ -305,8 +319,15 @@ class Postprocessor:
         )
 
         rel_dct = {}
+        soc_dem_dct = {}
 
+        # Dataset specific descriptives calculation (e.g., wb-outcomes, sociodemographcis)
         for dataset in self.datasets:
+            soc_dem_dct[dataset] = self.descriptives_creator.create_age_gender_descriptives(
+                dataset=dataset,
+                data=self.full_data.copy()
+            )
+
             traits_base_filename = self.cfg_postprocessing["create_descriptives"][
                 "traits_base_filename"
             ]
@@ -360,12 +381,19 @@ class Postprocessor:
                 trait_corr=wb_items_dct["trait_corr"],
             )
 
+        if desc_cfg["soc_dem"]["store"]:
+            file_path_socdem = os.path.join(
+                self.descriptives_creator.desc_results_base_path,
+                desc_cfg["soc_dem"]["filename"],
+            )
+            self.data_saver.save_json(soc_dem_dct, file_path_socdem)
+
         if desc_cfg["rel"]["store"]:
-            file_path = os.path.join(
+            file_path_rel = os.path.join(
                 self.descriptives_creator.desc_results_base_path,
                 desc_cfg["rel"]["filename"],
             )
-            self.data_saver.save_json(rel_dct, file_path)
+            self.data_saver.save_json(rel_dct, file_path_rel)
 
     def conduct_significance_tests(self) -> None:
         """Conducts significance tests to compare models and compare predictor classes."""
@@ -500,38 +528,54 @@ class Postprocessor:
             sep: str = "__",  # joiner for flat filenames
     ) -> None:
         """
-        Save every DataFrame in *results* to *base_result_dir*.
+        Saves a nested dictionary of DataFrames to disk in either flat or hierarchical structure.
 
-        Two output styles
-        -----------------
-        • flatten=True   →  "<key1>__<key2>.xlsx" (all files live in base_result_dir)
-        • flatten=False  →  "<key1>/<key2>.xlsx"  (dict mirrored as sub-folders)
+        This method recursively traverses a dictionary whose leaves are pandas DataFrames and writes them
+        to `base_result_dir` using the specified file extension. The output can be structured as either:
+        - Flat: files named using joined keys (e.g., "group__construct.xlsx")
+        - Nested: directories reflecting the dictionary hierarchy
 
-        Args
-        ----
-        results
-            Nested dictionary whose leaves are ``pd.DataFrame`` objects.
-        base_result_dir
-            Directory in which files (and, in hierarchy mode, sub-folders) are written.
-        flatten
-            Choose filename concatenation (True) or folder hierarchy (False).
-        file_ext
-            Extension/writer to use.  Supported out of the box: "xlsx" and "csv".
-        sep
-            Separator between keys when *flatten* is True.
+        Args:
+            results: A nested dictionary where leaves are pd.DataFrame objects.
+            base_result_dir: Base directory to save files or folders into.
+            flatten: If True, all files are saved in the base directory with concatenated filenames.
+                     If False, the dictionary structure is mirrored as subdirectories.
+            file_ext: File format to write ("xlsx" or "csv").
+            sep: Separator used to join keys in filenames when `flatten` is True.
         """
 
         base_dir = os.fspath(base_result_dir)
         os.makedirs(base_dir, exist_ok=True)
 
         def _safe(key: str) -> str:
-            """Replace path-unsafe characters with underscores."""
+            """
+            Converts a string into a filesystem-safe format by replacing unsafe characters.
+
+            Replaces all characters except letters, digits, underscores, hyphens, and periods
+            with underscores to ensure compatibility with file and directory names.
+
+            Args:
+                key: The string to sanitize for use in paths.
+
+            Returns:
+                str: A cleaned string safe for use as a filename or folder name.
+            """
             return re.sub(r"[^\w\-\.]", "_", str(key))
 
-        # ------------------------------------------------------------------#
-        # writer dispatch (extend if you need more formats)                  #
-        # ------------------------------------------------------------------#
         def _write(df: pd.DataFrame, path: str) -> None:
+            """
+            Writes a DataFrame to disk using the specified file format.
+
+            Supports "xlsx" and "csv" formats. Delegates the actual writing to the appropriate
+            method on `self.data_saver`.
+
+            Args:
+                df: The DataFrame to save.
+                path: Full file path (without extension stripping).
+
+            Returns:
+                None
+            """
             if file_ext == "xlsx":
                 self.data_saver.save_excel(df, path)
             elif file_ext == "csv":
@@ -542,10 +586,17 @@ class Postprocessor:
                     "Add a writer for it in _save_nested_results()."
                 )
 
-        # ------------------------------------------------------------------#
-        # traversal – two styles depending on 'flatten'                      #
-        # ------------------------------------------------------------------#
         def _walk_flat(subtree: dict, key_chain: list[str]) -> None:
+            """
+            Recursively traverses a nested dictionary and writes files using flat naming.
+
+            Keys are joined with the configured separator to form filenames. All files are saved
+            directly in the base result directory.
+
+            Args:
+                subtree: Current level of the nested dictionary.
+                key_chain: List of keys traversed so far, used to build the filename.
+            """
             for key, val in subtree.items():
                 new_chain = key_chain + [_safe(key)]
                 if isinstance(val, pd.DataFrame):
@@ -560,6 +611,16 @@ class Postprocessor:
                     )
 
         def _walk_nested(subtree: dict, current_path: str) -> None:
+            """
+            Recursively traverses a nested dictionary and saves files in corresponding subfolders.
+
+            Creates subdirectories reflecting the dictionary structure and writes each DataFrame
+            into its appropriate folder.
+
+            Args:
+                subtree: Current level of the nested dictionary.
+                current_path: Path where files or subfolders should be written.
+            """
             for key, val in subtree.items():
                 safe_key = _safe(key)
                 next_path = os.path.join(current_path, safe_key)
