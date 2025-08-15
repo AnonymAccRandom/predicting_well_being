@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from scipy.stats import t
+from scipy.stats import t as t_dist
 from statsmodels.stats.multitest import fdrcorrection
 
 from src.utils.DataLoader import DataLoader
@@ -106,6 +107,9 @@ class SignificanceTesting:
         self.t_strng = self.cfg_sig["t_strng"]
         self.p_strng = self.cfg_sig["p_strng"]
         self.p_fdr_strng = self.cfg_sig["p_fdr_strng"]
+        self.d_strng = self.cfg_sig["d_strng"]
+        self.d_lower_strng = self.cfg_sig["d_lower_strng"]
+        self.d_higher_strng = self.cfg_sig["d_higher_strng"]
 
     def significance_testing(self):
         """
@@ -701,7 +705,13 @@ class SignificanceTesting:
                 mean2, sd2 = np.mean(cv_results_model2), np.std(cv_results_model2)
 
                 t_val, p_val = self.corrected_dependent_ttest(
-                    cv_results_model2, cv_results_model1
+                    cv_results_model1, cv_results_model2
+                )
+                d, d_lower, d_upper = self.compute_effect_size_CI(
+                    t_val=t_val,
+                    n=500,
+                    alpha=0.05,
+                    round_digits=2
                 )
                 delta_R2 = np.round(
                     np.round(mean2, self.decimals) - np.round(mean1, self.decimals),
@@ -714,6 +724,9 @@ class SignificanceTesting:
                     self.delta_r2_str: f"{delta_R2:.{self.decimals}f}",
                     self.t_strng: f"{t_val:.{self.decimals}f}",
                     self.p_strng: p_val,  # Kept as is, assuming p-value formatting is handled elsewhere
+                    self.d_strng: d,
+                    self.d_lower_strng: d_lower,
+                    self.d_higher_strng: d_upper
                 }
 
         return defaultdict_to_dict(sig_results_dct)
@@ -787,6 +800,12 @@ class SignificanceTesting:
                         t_val, p_val = self.corrected_dependent_ttest(
                             pl_combo_data, pl_data
                         )
+                        d, d_lower, d_upper = self.compute_effect_size_CI(
+                            t_val=t_val,
+                            n=500,
+                            alpha=0.05,
+                            round_digits=2
+                        )
                         delta_R2 = np.round(
                             np.round(mean_combo, self.decimals)
                             - np.round(mean_pl, self.decimals),
@@ -801,6 +820,9 @@ class SignificanceTesting:
                             self.delta_r2_str: f"{delta_R2:.{self.decimals}f}",
                             self.p_strng: p_val,  # Kept as is, assuming p-value formatting is handled elsewhere
                             self.t_strng: f"{t_val:.{self.decimals}f}",
+                            self.d_strng: d,
+                            self.d_lower_strng: d_lower,
+                            self.d_higher_strng: d_upper
                         }
 
         return defaultdict_to_dict(sig_results_dct)
@@ -885,3 +907,32 @@ class SignificanceTesting:
         p = (1.0 - t.cdf(abs(t_stat), df)) * 2.0
 
         return t_stat, p
+
+    @staticmethod
+    def compute_effect_size_CI(
+        t_val: float, n: int = 500, alpha: float = 0.05, round_digits: int = 2
+    ) -> tuple[float, float, float]:
+        """
+        Computes Cohen's d and its confidence interval using a large-sample approximation.
+
+        - Calculates Cohen's dz directly from the t-statistic and sample size.
+        - Estimates the standard error of dz and applies the t-distribution critical value.
+        - Returns the rounded effect size along with the rounded confidence bounds.
+
+        Args:
+            t_val: t-statistic value from a paired t-test.
+            n: Number of pairs in the dataset (i.e., number of outer folds). Defaults to 500.
+            alpha: Significance level for the CI. Defaults to 0.05 (95% CI).
+            round_digits: Number of decimal places for rounding. Defaults to 2.
+
+        Returns:
+            Tuple[float, float, float]: Rounded Cohen's dz, lower CI bound, upper CI bound.
+        """
+        d = t_val / np.sqrt(n)
+        se_d = np.sqrt(1 / n + (d ** 2) / (2 * n))
+        t_crit = t_dist.ppf(1 - alpha / 2, df=n - 1)
+
+        lower = d - t_crit * se_d
+        upper = d + t_crit * se_d
+
+        return round(d, round_digits), round(lower, round_digits), round(upper, round_digits)

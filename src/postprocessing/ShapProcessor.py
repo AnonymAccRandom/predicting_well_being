@@ -129,7 +129,7 @@ class ShapProcessor:
                     else:
                         required_samples = samples_to_include
 
-                    if feature_combination == "all_in":
+                    if feature_combination in ["all_in", "all_in_npers", "all_in_nnse"]:
                         required_samples = "all"
 
                     # Only load if all filters match
