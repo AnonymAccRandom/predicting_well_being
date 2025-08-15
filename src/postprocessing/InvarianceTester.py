@@ -15,10 +15,21 @@ from rpy2.robjects.packages import importr
 semtools = importr("semTools")
 lavaan = importr("lavaan")
 
-def _df_to_r(df: pd.DataFrame):
+def _df_to_r(df: pd.DataFrame) -> object:
+    """
+    Converts a pandas DataFrame to an R DataFrame using rpy2.
+
+    This function uses rpy2's localconverter and pandas2ri to perform the conversion
+    from a pandas DataFrame to an R-compatible DataFrame.
+
+    Args:
+        df: A pandas DataFrame to be converted.
+
+    Returns:
+        object: robjects.vectors.DataFrame: The converted R DataFrame.
+    """
     with localconverter(ro.default_converter + pandas2ri.converter):
         return ro.conversion.py2rpy(df)
-
 
 from src.utils.DataLoader import DataLoader
 from src.utils.DataSaver import DataSaver
@@ -424,6 +435,8 @@ class InvarianceTester:
         If `group_col` is None, the analysis is performed on the entire sample. Groups with fewer than two items
         or fewer than three observations are skipped.
 
+        Note: Not used ATM, but works.
+
         Args:
             data: A wide-format DataFrame containing item columns and a grouping column.
             model_str: A Lavaan model string specifying the one-factor CFA structure.
@@ -553,7 +566,6 @@ class InvarianceTester:
 
         except:  # Any lavaan error, e.g. non-convergence
             return pd.DataFrame()
-            # format output df
 
         out = out.round(3)
         mapped_construct = self.name_mapping[var_type][factor]
@@ -599,7 +611,7 @@ class InvarianceTester:
             r_df,
             group_col: str,
             equal: list[str] | None = None,
-    ):
+    ) -> object:
         """
         Fits a multi-group CFA model in lavaan with optional equality constraints.
 
@@ -613,7 +625,7 @@ class InvarianceTester:
             equal: Optional list of constraints to apply across groups (e.g., ["loadings"]).
 
         Returns:
-            An R lavaan model fit object representing the estimated multi-group CFA.
+            object: An R lavaan model fit object representing the estimated multi-group CFA.
         """
         kwargs = {}
         if equal:
