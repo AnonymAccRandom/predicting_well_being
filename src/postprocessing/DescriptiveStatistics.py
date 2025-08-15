@@ -907,7 +907,7 @@ class DescriptiveStatistics:
             )
             self.data_saver.save_excel(table, file_path)
 
-    def analyze_country_level_vars(self) -> pd.DataFrame:
+    def analyze_country_level_vars(self, decimals: int = 2) -> pd.DataFrame:
         """
         Summarizes country-level variables from the full dataset.
 
@@ -917,12 +917,14 @@ class DescriptiveStatistics:
         - Minimum value
         - Maximum value
 
+        Args:
+            decimals: Number of decimals to round in the df. Defaults to 2.
+
         Returns:
             pd.DataFrame: A summary table with a MultiIndex column header.
                           The first level indicates the dataset ("all" or "cocoesm"),
                           and the second level indicates the statistic ("num_unique", "min", "max").
         """
-        # Identify relevant columns
         mac_data_cols = [col for col in self.full_data.columns if col.startswith("mac_")]
         df_all = self.full_data[mac_data_cols].copy()
         df_cocoesm = df_all.loc[self.full_data.index.str.startswith("cocoesm")]
@@ -939,20 +941,21 @@ class DescriptiveStatistics:
                 }
             return pd.DataFrame(summary).T  # Transpose to have variables as rows
 
-        # Create summaries
         summary_all = summarize(df_all)
         summary_cocoesm = summarize(df_cocoesm)
 
-        # Combine with MultiIndex columns
         combined = pd.concat(
             [summary_all, summary_cocoesm],
             axis=1,
             keys=["all", "cocoesm"]
         )
+        combined = combined.round(decimals)
+        combined.index = apply_name_mapping(list(combined.index), name_mapping=self.name_mapping, prefix=True)
 
         return combined
 
-    def create_age_gender_descriptives(self, dataset: str, data: pd.DataFrame,
+    @staticmethod
+    def create_age_gender_descriptives(dataset: str, data: pd.DataFrame,
                                        decimals = 2) -> dict[str, float]:
         """
         Computes mean and standard deviation of age, and gender proportions for a given dataset.
@@ -965,7 +968,7 @@ class DescriptiveStatistics:
         Args:
             dataset: The dataset identifier to filter rows by matching the beginning of the index.
             data: The complete DataFrame containing participant data with age and gender information.
-            decimals: The number of decimal places to use for calculating the mean and standard deviation.
+            decimals: The number of decimal places the results are rounded. Defaults to 2.
 
         Returns:
             dict[str, float]: A dictionary containing the mean age, standard deviation of age, and gender proportions
