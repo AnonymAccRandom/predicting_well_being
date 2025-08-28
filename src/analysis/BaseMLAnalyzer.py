@@ -5,6 +5,7 @@ import itertools
 import json
 import os
 import pickle
+import sys
 import threading
 from abc import ABC, abstractmethod
 from itertools import product
@@ -854,6 +855,48 @@ class BaseMLAnalyzer(ABC):
             ia_base_values,  # mean across imps
         )
 
+    def add_study_var(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds one binary variable per study to the input DataFrame.
+        Each variable indicates whether a row belongs to a given study,
+        based on whether the row index starts with that study's name.
+
+        Parameters:
+        - df: Input DataFrame with row indices containing study prefixes.
+
+        Returns:
+        - pd.DataFrame: DataFrame with added binary columns for each study.
+        """
+        df.index = df.index.astype(str)
+
+        samples_included = self.cfg_analysis["feature_sample_combinations"][self.feature_combination]
+
+        for study in samples_included:
+            col_name = f"study_var_{study}"
+            df[col_name] = df.index.str.startswith(study).astype(int)
+
+        return df
+
+    def remove_study_var(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Removes the binary study indicator columns from the input DataFrame.
+        These are columns named in the format 'study_var_{study_name}'.
+
+        Parameters:
+        - df: Input DataFrame with study indicator columns.
+
+        Returns:
+        - pd.DataFrame: DataFrame with study indicator columns removed.
+        """
+        samples_included = self.cfg_analysis["feature_sample_combinations"][self.feature_combination]
+
+        for study in samples_included:
+            col_name = f"study_var_{study}"
+            if col_name in df.columns:
+                df.drop(columns=col_name, inplace=True)
+
+        return df
+
     def manual_grid_search(
         self,
         imputed_datasets: dict[str, dict[str, pd.DataFrame]],
@@ -1047,6 +1090,10 @@ class BaseMLAnalyzer(ABC):
         data_dct = {}
 
         # Step 1: Data preparation
+        if self.cfg_analysis["imputation"]["add_study_var"]:
+            X_train_outer_cv = self.add_study_var(df=X_train_outer_cv)
+            X_test_outer_cv = self.add_study_var(df=X_test_outer_cv)
+
         for fold, (train_idx, val_idx) in enumerate(
             inner_cv.split(X_train_outer_cv, y_train_outer_cv, groups=groups)
         ):
@@ -1095,6 +1142,10 @@ class BaseMLAnalyzer(ABC):
         # Step 4: Reconstruction and result storage
         for task_idx, (fold, num_imp, _, _, indices) in enumerate(tasks):
             X_train_result, X_val_or_test_result = results[task_idx]
+
+            if self.cfg_analysis["imputation"]["add_study_var"]:
+                X_train_result = self.remove_study_var(df=X_train_result)
+                X_val_or_test_result = self.remove_study_var(df=X_val_or_test_result)
 
             if fold.startswith("inner"):
                 recreated_df = pd.concat([X_train_result, X_val_or_test_result])
@@ -1145,38 +1196,53 @@ class BaseMLAnalyzer(ABC):
         """
         imputer = clone(self.imputer)
         self.logger.log("--------------------------------------------------")
-        self.logger.log(
-            f"    Starting to impute dataset {fold} imputation number {num_imp}"
-        )
-        self.log_thread()
 
-        imputer.fit(
-            X=X_train, num_imputation=num_imp
-        )  # We need num_imp for different random seeds
+        # RUn this as separate tasks that only do the evaluation and quit afterward
+        if self.cfg_analysis["imputation"]["evaluate_robustness"]:
+            for holdout_frac in self.cfg_analysis["imputation"]["holdout_fractions"]:
+                self.logger.log(f"    Evaluate robustness of imputation")
+                self.logger.log(f"      Holdout fraction: {holdout_frac}")
+                imputer.evaluate_imputation_robustness(
+                    X=X_train,
+                    holdout_frac=holdout_frac,
+                    random_state=42,
+                    num_imp=num_imp
+                )
+            sys.exit()
 
-        self.logger.log(
-            f"    Number of Cols with NaNs in X_train: {len(X_train.columns[X_train.isna().any()])}"
-        )
-        X_train_imputed = imputer.transform(X=X_train)
+        else:
+            self.logger.log(
+                f"    Starting to impute dataset {fold} imputation number {num_imp}"
+            )
+            self.log_thread()
 
-        self.logger.log(
-            f"    Number of Cols with NaNs in X_test: {len(X_train.columns[X_val_or_test.isna().any()])}"
-        )
-        X_val_test_imputed = imputer.transform(X=X_val_or_test)
+            imputer.fit(
+                X=X_train, num_imputation=num_imp
+            )  # We need num_imp for different random seeds
 
-        X_train_imputed = X_train_imputed.drop(columns=self.meta_vars, errors="ignore")
-        X_val_test_imputed = X_val_test_imputed.drop(
-            columns=self.meta_vars, errors="ignore"
-        )
+            self.logger.log(
+                f"    Number of Cols with NaNs in X_train: {len(X_train.columns[X_train.isna().any()])}"
+            )
+            X_train_imputed = imputer.transform(X=X_train)
 
-        assert self.check_for_nan(
-            X_train_imputed, dataset_name="X_train_imputed"
-        ), "There are NaN values in X_train_imputed!"
-        assert self.check_for_nan(
-            X_val_test_imputed, dataset_name="X_test_imputed"
-        ), "There are NaN values in X_test_imputed!"
+            self.logger.log(
+                f"    Number of Cols with NaNs in X_test: {len(X_train.columns[X_val_or_test.isna().any()])}"
+            )
+            X_val_test_imputed = imputer.transform(X=X_val_or_test)
 
-        return X_train_imputed, X_val_test_imputed
+            X_train_imputed = X_train_imputed.drop(columns=self.meta_vars, errors="ignore")
+            X_val_test_imputed = X_val_test_imputed.drop(
+                columns=self.meta_vars, errors="ignore"
+            )
+
+            assert self.check_for_nan(
+                X_train_imputed, dataset_name="X_train_imputed"
+            ), "There are NaN values in X_train_imputed!"
+            assert self.check_for_nan(
+                X_val_test_imputed, dataset_name="X_test_imputed"
+            ), "There are NaN values in X_test_imputed!"
+
+            return X_train_imputed, X_val_test_imputed
 
     def check_for_nan(self, df: pd.DataFrame, dataset_name: str = "") -> bool:
         """

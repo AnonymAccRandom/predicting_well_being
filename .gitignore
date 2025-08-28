@@ -167,6 +167,7 @@ cython_debug/
 # data
 data/raw
 data/preprocessed
+data/
 
 # results
 results/
@@ -179,6 +180,8 @@ logs/
 
 # cache
 src/cache_directory
+
+.DS_Store*
 
 
 

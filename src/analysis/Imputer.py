@@ -1,11 +1,14 @@
+from copy import deepcopy
 from typing import Optional
 
+import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.experimental import (
     enable_iterative_imputer,
 )  # (!) do not delete, even if not explicitly used
 from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from src.analysis.AdaptiveImputerEstimator import AdaptiveImputerEstimator
 from src.analysis.CustomIterativeImputer import CustomIterativeImputer
@@ -488,3 +491,124 @@ class Imputer(BaseEstimator, TransformerMixin):
         imputer.fit(df)
 
         return imputer
+
+    def evaluate_imputation_robustness(
+        self,
+        X: pd.DataFrame,
+        num_imp: int,
+        holdout_frac: float = 0.1,
+        variables_to_evaluate: Optional[list[str]] = None,
+        random_state: Optional[int] = None,
+    ) -> pd.DataFrame:
+        """
+        Benchmarks this (wrapper-)imputer by masking a slice of observed values,
+        imputing them with a fresh clone, and computing several quality metrics.
+
+        The routine:
+        • Selects candidate columns (numeric/boolean, not ``other_*``) unless an
+          explicit list is supplied.
+        • Masks *holdout_frac* of each candidate’s **observed** entries (≥ 1 value)
+          using a reproducible RNG.
+        • Fits an unfitted clone of ``self`` on the partly masked data, leaving the
+          production instance untouched.
+        • Compares the clone’s imputations with the ground truth and returns per-
+          variable metrics:
+
+          * ``RB``  – raw bias  *E( Q̂ ) − Q*
+          * ``PB``  – percent bias *100 × |RB / Q|* (``NaN`` if the true mean is 0)
+          * ``MAE`` – mean absolute error
+          * ``RMSE`` – root mean square error
+          * ``n_holdout`` – number of masked cells
+
+        Args:
+            X: DataFrame to benchmark.
+            holdout_frac: Fraction of observed values to hide in each column.
+            variables_to_evaluate: Optional explicit list of columns; if ``None``
+                auto-selects as described above.
+            random_state: Seed for reproducibility; falls back to ``self.fix_rs``.
+
+        Returns:
+            pd.DataFrame: Metrics table sorted by ``RMSE``.
+        """
+        rng = np.random.default_rng(random_state or self.fix_rs)
+        df = X.copy()
+
+        # ------------------------------------------------------------------ #
+        # 1) choose columns                                                  #
+        # ------------------------------------------------------------------ #
+        if variables_to_evaluate is None:
+            variables_to_evaluate = [
+                c
+                for c in df.columns
+                if df[c].isna().sum() < len(df)
+                   and not c.startswith("other_")
+                   and pd.api.types.is_numeric_dtype(df[c])
+            ]
+
+        mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+
+        # ------------------------------------------------------------------ #
+        # 2) hold-out                                                        #
+        # ------------------------------------------------------------------ #
+        for col in variables_to_evaluate:
+            candidates = df[col].dropna().index.to_numpy()
+            if not len(candidates):
+                continue
+            n_holdout = max(1, int(len(candidates) * holdout_frac))
+            hold_idx = rng.choice(candidates, n_holdout, replace=False)
+            mask.loc[hold_idx, col] = True
+            df.loc[hold_idx, col] = np.nan
+
+        # ------------------------------------------------------------------ #
+        # 3) fit fresh clone                                                 #
+        # ------------------------------------------------------------------ #
+        tmp = clone(self)
+        tmp.fit(df, num_imputation=num_imp)
+        df_imp = tmp.transform(df)
+
+        # ------------------------------------------------------------------ #
+        # 4) metrics                                                         #
+        # ------------------------------------------------------------------ #
+        rows: list[dict[str, float]] = []
+        for col in variables_to_evaluate:
+            idx = mask.index[mask[col].values]
+            true_vals = X.loc[idx, col]
+            imp_vals = df_imp.loc[idx, col]
+
+            # raw & percent bias
+            rb = float((imp_vals - true_vals).mean())  # E(Q̂) − Q
+            q_mean = float(true_vals.mean())
+            pb = float(np.nan) if np.isclose(q_mean, 0) else 100.0 * abs(rb / q_mean)
+
+            rows.append(
+                {
+                    "variable": col,
+                    "n_holdout": len(idx),
+                    "RB": rb,
+                    "PB": pb,
+                    "MAE": mean_absolute_error(true_vals, imp_vals),
+                    "RMSE": mean_squared_error(true_vals, imp_vals, squared=False),
+                }
+            )
+
+            metrics_df = (
+                pd.DataFrame(rows)
+                .sort_values("RMSE")
+                .reset_index(drop=True)
+                .loc[:, ["variable", "n_holdout", "RB", "PB", "MAE", "RMSE"]]
+            )
+
+            pb_below_5_pct = float((metrics_df["PB"] < 5).mean() * 100)
+
+            summary_df = (
+                metrics_df[["RB", "PB", "MAE", "RMSE"]]
+                .agg(["mean", "std"])
+                .T.rename(columns={"mean": "M", "std": "SD"})
+            )
+
+            self.logger.log(f"      Perc of Features below 5% bias: {pb_below_5_pct}")
+            pretty = summary_df.round(3).to_string(justify="right")
+            self.logger.log(f"      Summary DataFrame containing M and SD of metrics ")
+            self.logger.log(f"      {pretty}")
+
+        return metrics_df, summary_df, pb_below_5_pct

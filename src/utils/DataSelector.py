@@ -148,7 +148,7 @@ class DataSelector:
 
         - Includes features with specific prefixes (e.g., "pl_", "srmc_", "mac_").
         - Adds metadata columns needed for downstream processing.
-        - Handles special cases like removing certain features for specific analyses (_nnse)
+        - Handles special cases like removing certain features for specific analyses (_nnse, _npers)
 
         Returns:
             pd.DataFrame: DataFrame containing only the selected features.
@@ -190,6 +190,10 @@ class DataSelector:
                 "pl_emotional_volatility",
                 "pl_self_esteem",
             ]
+            selected_columns = [col for col in selected_columns if col not in to_remove]
+
+        if "npers" in self.feature_combination:
+            to_remove = self.cfg_analysis["pl_vars_to_exclude"]
             selected_columns = [col for col in selected_columns if col not in to_remove]
 
         X = self.df[selected_columns].copy()

@@ -11,7 +11,7 @@ joblib==1.4.2
 kiwisolver==1.4.7
 llvmlite==0.43.0
 matplotlib==3.9.2
-mpi4py==3.1.4
+mpi4py==4.1.0  # does this work?
 networkx==3.3
 numba==0.60.0
 numpy==2.0.1

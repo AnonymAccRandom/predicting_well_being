@@ -1,14 +1,14 @@
 # This configuration file enables the configuration of certain parameters for the postprocessing of the results.
 # All final results where generated with the current configuration.
 
-execute_postprocessing: true
+execute_postprocessing: false
 
 methods_to_apply:
   #- condense_cv_results
   #- sanity_check_pred_vs_true
-  #- create_descriptives
+  - create_descriptives
   #- conduct_significance_tests
-  - create_cv_results_plots
+  #- create_cv_results_plots
   #- create_shap_plots
   #- calculate_exp_lin_models
   #- create_lin_model_coefs_supp
