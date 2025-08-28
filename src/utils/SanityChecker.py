@@ -542,10 +542,7 @@ class SanityChecker:
         Performs descriptive checks on country-level predictors to diagnose unexpected MAC effects.
 
         This method filters the input DataFrame to retain only metadata, criterion, and MAC-level variables.
-        It then prints summary statistics for each criterion variable grouped by:
-        - Dataset
-        - Country bucket
-        - Country bucket by year
+        It then prints summary statistics for each criterion variable grouped by dataset.
 
         Args:
             full_data: Full participant-level DataFrame containing metadata, outcome variables, and MAC-level predictors.
@@ -557,17 +554,14 @@ class SanityChecker:
         cols = meta_cols_to_keep + crit_cols_to_keep + mac_cols_to_keep
         df_filtered = full_data[cols]
 
-        # Plot for df_filtered
         for crit in crit_cols_to_keep:
-            self._print_sample_stats(df_filtered, crit, group_by="dataset")
-            self._print_sample_stats(df_filtered, crit, group_by="country_bucket")
-            self._print_sample_stats(df_filtered, crit, group_by="country_bucket_year")
+            self._print_sample_stats(df_filtered, crit, group_by="emotions_vs_all")
 
     @staticmethod
     def _print_sample_stats(
             df: pd.DataFrame,
             crit_col: str,
-            group_by: str = "dataset"
+            group_by: str = "emotions_vs_all"
     ) -> None:
         """
         Computes and prints group-wise summary statistics for a criterion variable.
@@ -581,6 +575,7 @@ class SanityChecker:
             crit_col: The name of the criterion column to summarize.
             group_by: Grouping strategy; one of:
                       - "dataset"
+                      - "emotions_vs_all"
                       - "country"
                       - "country_year"
                       - "country_bucket"
@@ -589,9 +584,11 @@ class SanityChecker:
         data = df[crit_col].dropna()
         working_df = pd.DataFrame({crit_col: data})
 
-        # Prepare grouping column
         if group_by == "dataset":
             working_df["group"] = df.loc[data.index].index.to_series().str.extract(r'^([^_]+)')[0].str.lower()
+
+        if group_by == "emotions_vs_all":
+            working_df["group"] = df.loc[data.index].index.to_series().str.startswith("emotions").astype(int)
 
         elif group_by == "country":
             if "other_country" not in df.columns:
@@ -642,23 +639,42 @@ class SanityChecker:
         else:
             raise ValueError(f"Unknown group_by: {group_by}")
 
-        # Compute and print statistics
-        grouped = working_df.groupby("group")[crit_col]
-        print("-----")
-        print(f"Crit: {crit_col}, Groupby: {group_by}")
-        group_means = []
+        if group_by == "emotions_vs_all":
+            # Group 1: emotions
+            vals_emotions = working_df.loc[working_df["group"] == 1, crit_col]
+            mean_emotions = vals_emotions.mean()
+            sd_emotions = vals_emotions.std()
+            n_emotions = len(vals_emotions)
+            print(f"  Emotions (1): Mean = {mean_emotions:.3f}, SD = {sd_emotions:.3f}, N = {n_emotions}")
 
-        for group_name, values in grouped:
-            mean_val = values.mean()
-            std_val = values.std()
-            group_means.append(mean_val)
-            print(f"  {group_name}: Mean = {mean_val:.3f}, SD = {std_val:.3f}, N = {len(values)}")
+            # Group 0: all others
+            vals_all = working_df.loc[working_df["group"] == 0, crit_col]
+            mean_all = vals_all.mean()
+            sd_all = vals_all.std()
+            n_all = len(vals_all)
+            print(f"  All others (0): Mean = {mean_all:.3f}, SD = {sd_all:.3f}, N = {n_all}")
 
-        # Compute mean and SD across group means
-        if group_means:
-            overall_mean = np.mean(group_means)
-            overall_sd = np.std(group_means, ddof=1)  # sample SD
-            print(f"  Across-groups: Mean of means = {overall_mean:.3f}, SD of means = {overall_sd:.3f}")
+            # Difference in means
+            diff = mean_emotions - mean_all
+            print(f"  Difference (1 - 0): {diff:.3f}")
+        else:
+            # may delete afterwards
+            grouped = working_df.groupby("group")[crit_col]
+            print("-----")
+            print(f"Crit: {crit_col}, Groupby: {group_by}")
+            group_means = []
+
+            for group_name, values in grouped:
+                mean_val = values.mean()
+                std_val = values.std()
+                group_means.append(mean_val)
+                print(f"  {group_name}: Mean = {mean_val:.3f}, SD = {std_val:.3f}, N = {len(values)}")
+
+            # Compute mean and SD across group means
+            if group_means:
+                overall_mean = np.mean(group_means)
+                overall_sd = np.std(group_means, ddof=1)  # sample SD
+                print(f"  Across-groups: Mean of means = {overall_mean:.3f}, SD of means = {overall_sd:.3f}")
 
     def sanity_check_pred_vs_true(self, full_data: pd.DataFrame, groupby: str = "sample") -> None:
         """
@@ -673,6 +689,14 @@ class SanityChecker:
         Configurable via:
             - Repetitions to check (`reps_to_check`).
             - Output paths and filenames (`data_paths`, `plot`, `summary_stats`).
+
+        Args:
+            full_data: A DataFrame containing the full metadata used to group predictions (e.g., by sample or country).
+            groupby: Specifies the granularity for comparison. One of:
+                - "sample": Compares predictions per individual sample.
+                - "country_year": Aggregates by country and year, filtering low-N samples.
+                - "country_group": Groups samples into higher-level categories (e.g., US, GER, others).
+
         """
         if self.cfg_postprocessing:
             cfg_pred_vs_true = self.cfg_postprocessing["sanity_check_pred_vs_true"]
@@ -826,16 +850,15 @@ class SanityChecker:
             full_data: pd.DataFrame,
             filter_n_samples: int = None,
             group_by_year: bool = True
-
     ) -> NestedDict:
         """
         Groups prediction data by country, collapsing years and separating into
         'Germany', 'USA', and 'Other' buckets.
 
         Args:
-            index_data (NestedDict): Dict with index as key and list of (pred, true) tuples as values.
-            full_data (pd.DataFrame): DataFrame containing metadata for each index.
-            filter_n_samples (int, optional): Minimum number of samples required to keep a group.
+            index_data:  Dict with index as key and list of (pred, true) tuples as values.
+            full_data: DataFrame containing metadata for each index.
+            filter_n_samples: Minimum number of samples required to keep a group.
 
         Returns:
             NestedDict: A dictionary with keys 'Germany', 'USA', and 'Other', each containing lists
