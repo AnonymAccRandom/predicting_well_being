@@ -130,7 +130,7 @@ class SuppFileCreator:
             if key == "feature_names":
                 continue
             for stat, stat_vals in values.items():
-                shap_values[key][stat] = np.array(stat_vals, dtype=np.float32)
+                shap_values[key][stat] = np.array(stat_vals, dtype=np.float16)
 
         formatted_feature_names = apply_name_mapping(
             features=feature_names_copy,

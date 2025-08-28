@@ -4,7 +4,7 @@
 execute_postprocessing: true
 
 methods_to_apply:
-  - condense_cv_results
+  #- condense_cv_results
   #- prediction_sanity_checks
   #- create_descriptives
   #- conduct_significance_tests
@@ -12,7 +12,7 @@ methods_to_apply:
   #- create_shap_plots
   #- calculate_exp_lin_models
   #- create_lin_model_coefs_supp
-  #- create_shap_values_supp  # this may take a while
+  - create_shap_values_supp  # this may take a while
   #- create_shap_ia_values_supp
   #- test_measurement_invariance
   #- analyze_samples_missings
