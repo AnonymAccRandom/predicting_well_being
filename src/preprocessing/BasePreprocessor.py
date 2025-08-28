@@ -289,6 +289,7 @@ class BasePreprocessor(ABC):
             (self.dataset_specific_post_processing, {"df": None}),
             (self.set_id_as_index, {"df": None}),
             (self.inverse_coding, {"df": None}),
+            (self.store_raw_trait_df, {"df": None}),
             (self.create_scale_means, {"df": None}),
             (self.store_trait_wb_items, {"df": None}),
             (self.create_criteria, {"df": None}),
@@ -419,7 +420,10 @@ class BasePreprocessor(ABC):
         Returns:
             pd.DataFrame: A DataFrame filtered to include only the relevant columns.
         """
-        cols_to_be_selected = []
+        if df_type in["person_level", "esm_based"]:
+            cols_to_be_selected = ["country"]
+        else:
+            cols_to_be_selected = []
 
         for cat, cat_entries in self.cfg_preprocessing[df_type].items():
             for entry in cat_entries:
@@ -1641,7 +1645,6 @@ class BasePreprocessor(ABC):
                 self.logger.log(
                     f"          N measurements for wave {wave} after filtering: {len(df_filtered_tmp)}"
                 )
-
         return filtered_df
 
     def store_wb_items(self, df_states: pd.DataFrame) -> pd.DataFrame:
@@ -1667,7 +1670,8 @@ class BasePreprocessor(ABC):
         Returns:
             pd.DataFrame: The original state DataFrame, unchanged.
         """
-        cols = [self.raw_esm_id_col, self.esm_timestamp]
+        cols = [self.raw_esm_id_col, self.esm_timestamp, "country"]
+
         affect_states_dct = self._get_state_affect_dct()
         cols.extend(
             [item for sublist in affect_states_dct.values() for item in sublist]
@@ -1885,6 +1889,7 @@ class BasePreprocessor(ABC):
         Returns:
             pd.DataFrame: A merged DataFrame combining state-level and trait-level data.
         """
+        df_traits = df_traits.drop(columns=["country"])
         df_joint = pd.merge(
             df_states,
             df_traits,
@@ -1967,7 +1972,7 @@ class BasePreprocessor(ABC):
         return df
 
     def store_trait_wb_items(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
+        """store
         Stores well-being (wb) trait items from the DataFrame for later use.
 
         This method extracts positive affect (PA) and negative affect (NA) trait items based on the
@@ -1995,16 +2000,55 @@ class BasePreprocessor(ABC):
             na_trait_items = []
 
         wb_trait_items = pa_trait_items + na_trait_items
+        wb_trait_items.append("country")
 
         if wb_trait_items:
             df_trait_wb_items = df[wb_trait_items]
 
+            if self.cfg_preprocessing["general"]["store_trait_wb_items"]:
+                filename = os.path.join(
+                    self.cfg_preprocessing["general"]["path_to_preprocessed_data"],
+                    f"trait_wb_items_{self.dataset}",
+                )
+                with open(filename, "wb") as f:
+                    pickle.dump(df_trait_wb_items, f)
+
+        return df
+
+    def store_raw_trait_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Stores the personality variables where scales are formed for later testing of
+        measurement invariance.
+
+        For each trait in the personality configuration:
+        - Identifies the survey source (e.g., 'emotions', 'zpid') with more than one item present in the current dataset
+        - Extracts item names for those sources
+        - Aggregates all such item names for all traits
+        - Filters and returns a DataFrame with only these selected item columns
+
+        Args:
+            df: A pandas DataFrame containing trait-level data.
+
+        Returns:
+            pd.DataFrame: A filtered DataFrame containing only the relevant item variables used for scale formation.
+        """
+        personality_vars_cfg = self.cfg_preprocessing["person_level"]["personality"]
+        relevant_items = ["country"]
+
+        for trait in personality_vars_cfg:
+            if self.dataset in trait["item_names"]:
+                item_names = trait["item_names"][self.dataset]
+                if len(item_names) > 1:
+                    relevant_items.extend(item_names)
+
+        if relevant_items:
+            raw_trait_df = df[relevant_items].copy()
             filename = os.path.join(
                 self.cfg_preprocessing["general"]["path_to_preprocessed_data"],
-                f"trait_wb_items_{self.dataset}",
+                f"raw_trait_df_{self.dataset}",
             )
             with open(filename, "wb") as f:
-                pickle.dump(df_trait_wb_items, f)
+                pickle.dump(raw_trait_df, f)
 
         return df
 

@@ -248,6 +248,7 @@ class CocoutPreprocessor(BasePreprocessor):
         """
         df_states = self.clean_number_interaction_partners(df_states=df_states)
         df_states["studyWave"] = df_states[self.raw_trait_id_col].apply(lambda x: x[:4])
+        df_states["country"] = "usa"
 
         return df_states
 

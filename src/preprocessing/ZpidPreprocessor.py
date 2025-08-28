@@ -244,6 +244,7 @@ class ZpidPreprocessor(BasePreprocessor):
             pd.DataFrame: The updated DataFrame with the "studyWave" column.
         """
         df_states = self.create_wave_col(df_states)
+        df_states["country"] = "germany"
         return df_states
 
     def create_wave_col(self, df_states: pd.DataFrame) -> pd.DataFrame:

@@ -165,6 +165,7 @@ class EmotionsPreprocessor(BasePreprocessor):
         """
         df_states = self.create_close_interactions(df_states=df_states)
         df_states = self.merge_int_occup_states(df_states=df_states)
+        df_states["country"] = "germany"
 
         return df_states
 

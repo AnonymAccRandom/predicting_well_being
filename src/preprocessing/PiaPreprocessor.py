@@ -60,6 +60,24 @@ class PiaPreprocessor(BasePreprocessor):
         df_traits["country"] = "germany"
         return df_traits
 
+    def dataset_specific_state_processing(
+        self, df_states: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Processes state data specific to PIA by creating and populating new columns:
+         - "country": Assigned a constant value of "germany".
+
+        Args:
+            df_traits: The input DataFrame containing trait-level data.
+
+        Returns:
+            pd.DataFrame: The modified DataFrame with the added 'country' column.
+        """
+        df_states["country"] = "germany"
+        return df_states
+
+
+
     def merge_states(self, df_dct: dict[str, pd.DataFrame]) -> pd.DataFrame:
         """
         Retrieves the DataFrame for state-level data from the input dictionary.

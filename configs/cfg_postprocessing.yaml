@@ -1,12 +1,12 @@
 # This configuration file enables the configuration of certain parameters for the postprocessing of the results.
 # All final results where generated with the current configuration.
 
-execute_postprocessing: false
+execute_postprocessing: true
 
 methods_to_apply:
   #- condense_cv_results
   #- sanity_check_pred_vs_true
-  - create_descriptives
+  #- create_descriptives
   #- conduct_significance_tests
   #- create_cv_results_plots
   #- create_shap_plots
@@ -14,6 +14,7 @@ methods_to_apply:
   #- create_lin_model_coefs_supp
   #- create_shap_values_supp  # this may take a while
   #- create_shap_ia_values_supp
+  - test_measurement_invariance
 
 general:
   feature_combinations:
@@ -477,3 +478,77 @@ create_supp_files:
   lin_coefs_output_filename: run_2012_lin_model_coefs
   shap_output_filename: run_2012_shap_values
   shap_ia_output_filename: run_2012_shap_ia_values
+
+measurement_invariance:
+  across_datasets:  # mirror structure from preprocessing
+    personality:
+      # BFI2
+      - name: sociability
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: assertiveness
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: energy_level
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: compassion
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: respectfulness
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: trust
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: organization
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: productiveness
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: responsibility
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: anxiety
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: depression
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: emotional_volatility
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: intellectual_curiosity
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: aesthetic_sensitivity
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      - name: creative_imagination
+        to_include: ["cocout", "pia", "cocoesm", "cocoms"]
+      # HEXACO-60
+      - name: sincerity
+        to_include: ["cocout", "emotions", "cocoesm", "cocoms"]
+      - name: fairness
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      - name: greed_avoidance
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      - name: modesty
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      # NARQ-S
+      - name: narcissistic_admiration
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      - name: narcissistic_rivalry
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      # UCLA-S
+      - name: intimate_loneliness
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      - name: relational_loneliness
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      - name: collective_loneliness
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+      # CMQ
+      - name: conspiracy_mentality
+        to_include: [ "cocout", "emotions", "cocoesm", "cocoms" ]
+    # Remembered well-being
+    wb_trait:
+      - name: pa_trait
+        to_include: ["cocout", "cocoesm", "cocoms"]
+      - name: na_trait
+        to_include: [ "pia", "cocoesm", "cocoms" ]
+    # Current well-being
+    wb_state:
+      - name: pa_state
+        to_include: ["cocoesm", "cocoms"]
+      - name: na_state
+        to_include: [ "pia", "cocoesm", "cocoms" ]
+
+  across_countries:
+    min_samples: [50, 100, 200] # to iterate over

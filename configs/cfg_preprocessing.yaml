@@ -5,13 +5,15 @@
 execute_preprocessing: false
 
 general:
-  datasets_to_be_included: [ cocoesm, cocoms, cocout, emotions, pia, zpid ]
+  datasets_to_be_included: [ cocoesm, cocoms, cocout, emotions, pia, zpid ] # cocoesm, cocoms, cocout, emotions, pia,
   log_dir: "../logs/x"  # only for relevant preprocessing
   log_name: x
 
   path_to_raw_data: "../data/raw"
-  store_data: true  # store the full preprocessed df
+  store_data: false  # store the full preprocessed df
   store_wb_items: true  # store the wb_items for calculating descriptives
+  store_trait_wb_items: true
+  store_raw_trait_df: true # stores the raw items of personality scales for measurement invariance
 
   path_to_preprocessed_data: "../data/preprocessed"
   full_data_filename: full_data  # data used for ML-based analysis
@@ -52,8 +54,8 @@ general:
 
   country_col:
     cocoesm:
-      trait: country
-      state: country_esm
+      person_level: country
+      esm_based: country
 
   sensing:
     app_substring:
@@ -1358,10 +1360,10 @@ esm_based:
         zpid: studyWave
         emotions: wave
 
-    - name: country_esm
+    - name: country
       var_type: string
       item_names:
-        cocoesm: country_esm
+        cocoesm: country
 
   self_reported_micro_context:
     - name: number_interactions
