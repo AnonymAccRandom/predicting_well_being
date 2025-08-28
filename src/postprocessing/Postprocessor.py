@@ -9,6 +9,7 @@ from src.postprocessing.DescriptiveStatistics import DescriptiveStatistics
 from src.postprocessing.InvarianceTester import InvarianceTester
 from src.postprocessing.LinearRegressor import LinearRegressor
 from src.postprocessing.ResultPlotter import ResultPlotter
+from src.postprocessing.SampleMissingsAnalyzer import SampleMissingsAnalyzer
 from src.postprocessing.ShapProcessor import ShapProcessor
 from src.postprocessing.SignificanceTesting import SignificanceTesting
 from src.postprocessing.SuppFileCreator import SuppFileCreator
@@ -123,6 +124,12 @@ class Postprocessor:
             name_mapping=name_mapping,
             base_result_path=self.base_result_path,
             full_data=self.full_data,
+        )
+
+        self.sample_missings_analyzer = SampleMissingsAnalyzer(
+            full_data=self.full_data,
+            data_saver=self.data_saver,
+            name_mapping=self.name_mapping,
         )
 
         self.cv_result_processor = CVResultProcessor(
@@ -409,6 +416,14 @@ class Postprocessor:
 
         mi_countries = self.invariance_tester.test_invariance_across_countries()
         self._save_nested_results(mi_countries, "../results/mi_across_countries")
+
+    def analyze_samples_missings(self) -> None:
+        """Analyzes differences between missings and non-missings and between datasets."""
+
+        self.sample_missings_analyzer.compare_missings(  # This takes some time
+            method="pairwise"
+        )
+        self.sample_missings_analyzer.compare_samples()
 
     def create_cv_results_plots(self) -> None:
         """Creates a bar plot summarizing CV results for the analyses specified."""
