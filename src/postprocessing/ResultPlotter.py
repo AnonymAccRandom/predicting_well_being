@@ -1020,9 +1020,13 @@ class ResultPlotter:
 
         cfg_ia_values = self.cfg_shap_plot["ia_values"]
 
+        if self.cfg_shap_plot["analysis"] == "main":
+            mapping_str = "main"
+        else:
+            mapping_str = "supp"
         feature_combo_name_mapping = self.cfg_postprocessing["general"][
             "feature_combinations"
-        ]["name_mapping"]["main"]
+        ]["name_mapping"][mapping_str]
         if cfg_ia_values["add"]:
             feature_combo_name_mapping = {
                 **feature_combo_name_mapping,
@@ -1168,6 +1172,7 @@ class ResultPlotter:
                             plot_format=self.cfg_shap_plot["store_params"]["format"],
                             dpi=self.cfg_shap_plot["store_params"]["dpi"],
                             model=model,
+                            mapping_str=mapping_str,
                         )
                     else:
                         plt.show()
@@ -1530,6 +1535,7 @@ class ResultPlotter:
         samples_to_include: str = None,
         crit: str = None,
         model: str = None,
+        mapping_str: str = None,
     ):
         """
         Stores plots in a given directory in a certain format and resolution.
@@ -1544,12 +1550,14 @@ class ResultPlotter:
             samples_to_include: e.g., "all"
             crit: e.g., "state_wb"
             model: e.g., "randomforestregressor"
+            mapping_str: e.g., "main" or "supp", to differentiate, if necessary
         """
         plot_path = self.create_plot_path(
             feature_combination=feature_combination,
             samples_to_include=samples_to_include,
             crit=crit,
             model=model,
+            mapping_str=mapping_str
         )
         os.makedirs(plot_path, exist_ok=True)
         filename = f"{plot_name}.{plot_format}"
@@ -1569,6 +1577,7 @@ class ResultPlotter:
         crit: Optional[str] = None,
         model: Optional[str] = None,
         feature_combination: Optional[str] = None,
+        mapping_str: Optional[str] = None,
     ) -> str:
         """
         Constructs the file path where plots should be stored based on input parameters.
@@ -1587,10 +1596,10 @@ class ResultPlotter:
         Returns:
             str: The normalized file path where the plot should be stored.
         """
-        path_components = [None, None, None, None]
+        path_components = [None, None, None, None, None ]
 
         for path_idx, var in enumerate(
-            [samples_to_include, crit, model, feature_combination]
+            [samples_to_include, crit, model, feature_combination, mapping_str]
         ):
             if var is not None:
                 path_components[path_idx] = var
