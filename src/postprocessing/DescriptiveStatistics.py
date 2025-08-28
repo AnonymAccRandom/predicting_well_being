@@ -278,7 +278,7 @@ class DescriptiveStatistics:
     @staticmethod
     def calculate_bin_stats(
         df: pd.DataFrame, binary_vars: list[str], prefix: str, stats: list[str]
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, None]:
         """
         Calculates binary statistics for specified variables.
 
@@ -309,6 +309,10 @@ class DescriptiveStatistics:
             bin_stats["Group"] = prefix.rstrip("_")
 
             return bin_stats[["Group", "Variable", "%"]].reset_index(drop=True)
+
+        else:
+            return None
+
 
     def create_wb_items_stats_per_dataset(
         self,
@@ -348,7 +352,7 @@ class DescriptiveStatistics:
 
         if state_df is not None:
             state_df = state_df.drop(
-                columns=["wb_state", "pa_state", "na_state"], errors="ignore"
+                columns=["wb_state", "pa_state", "na_state", "country"], errors="ignore"
             )
 
             if dataset == "emotions":
@@ -372,7 +376,7 @@ class DescriptiveStatistics:
 
         if trait_df is not None:
             trait_df = trait_df.drop(
-                columns=["wb_trait", "pa_trait", "na_trait"], errors="ignore"
+                columns=["wb_trait", "pa_trait", "na_trait", "country"], errors="ignore"
             )
 
             trait_df.columns = apply_name_mapping(
@@ -903,35 +907,98 @@ class DescriptiveStatistics:
             )
             self.data_saver.save_excel(table, file_path)
 
-    def analyze_country_level_vars(self):
+    def analyze_country_level_vars(self) -> pd.DataFrame:
         """
-        Analyzes country-level variables in self.full_data.
-        Extracts all columns starting with 'mac_', and computes:
-          - number of unique values
-          - min and max (i.e., range)
+        Summarizes country-level variables from the full dataset.
 
-        Note: Currently, the stats are based on the full dataframe. For specific analyses,
-        the number of unique values and the range may be a bit smaller.
+        This method selects all columns prefixed with `mac_` and computes descriptive
+        statistics across the full dataset and the CoCoESM subset. For each variable, it reports:
+        - Number of unique values
+        - Minimum value
+        - Maximum value
 
         Returns:
-            pd.DataFrame: Summary table with variable name, number of unique values, min, and max.
+            pd.DataFrame: A summary table with a MultiIndex column header.
+                          The first level indicates the dataset ("all" or "cocoesm"),
+                          and the second level indicates the statistic ("num_unique", "min", "max").
         """
-        # Identify country-level variables
+        # Identify relevant columns
         mac_data_cols = [col for col in self.full_data.columns if col.startswith("mac_")]
-        df_mac = self.full_data[mac_data_cols].copy()
+        df_all = self.full_data[mac_data_cols].copy()
+        df_cocoesm = df_all.loc[self.full_data.index.str.startswith("cocoesm")]
 
-        # Create summary table
-        summary = []
-        for col in df_mac.columns:
-            non_na_series = df_mac[col].dropna()
-            summary.append({
-                "variable": col,
-                "num_unique": non_na_series.nunique(),
-                "min": non_na_series.min(),
-                "max": non_na_series.max()
-            })
+        # Summary helper function
+        def summarize(df):
+            summary = {}
+            for col in df.columns:
+                non_na = df[col].dropna()
+                summary[col] = {
+                    "num_unique": non_na.nunique(),
+                    "min": non_na.min(),
+                    "max": non_na.max()
+                }
+            return pd.DataFrame(summary).T  # Transpose to have variables as rows
 
-        summary_df = pd.DataFrame(summary)
+        # Create summaries
+        summary_all = summarize(df_all)
+        summary_cocoesm = summarize(df_cocoesm)
 
-        return summary_df
+        # Combine with MultiIndex columns
+        combined = pd.concat(
+            [summary_all, summary_cocoesm],
+            axis=1,
+            keys=["all", "cocoesm"]
+        )
 
+        return combined
+
+    def create_age_gender_descriptives(self, dataset: str, data: pd.DataFrame,
+                                       decimals = 2) -> dict[str, float]:
+        """
+        Computes mean and standard deviation of age, and gender proportions for a given dataset.
+
+        Filters the provided DataFrame to rows where the index begins with the given dataset identifier.
+        Then calculates:
+        - Mean and standard deviation of the 'pl_age' column
+        - Proportion of entries with gender indicated as male, female, or other
+
+        Args:
+            dataset: The dataset identifier to filter rows by matching the beginning of the index.
+            data: The complete DataFrame containing participant data with age and gender information.
+            decimals: The number of decimal places to use for calculating the mean and standard deviation.
+
+        Returns:
+            dict[str, float]: A dictionary containing the mean age, standard deviation of age, and gender proportions
+                              with keys 'mean_age', 'std_age', 'prop_male', 'prop_female', 'prop_other'.
+        """
+        subset = data[data.index.str.startswith(dataset)]
+        mean_age = np.round(subset["pl_age"].mean(), decimals)
+        std_age = np.round(subset["pl_age"].std(), decimals)
+
+        # Gender logic
+        gcols = ["pl_gender_male", "pl_gender_female", "pl_gender_other"]
+        genders = subset[gcols].fillna(0).astype(float)
+        valid_rows = genders.sum(axis=1) == 1
+        valid = genders[valid_rows]
+
+        total = int(valid.shape[0])
+
+        if total == 0:
+            props = {"male": 0.0, "female": 0.0, "other": 0.0}
+
+        else:
+            sums = valid.sum()  # each column sum = number of people in that category
+            props = (sums / total * 100).round(decimals)
+            props = {
+                "male": float(props["pl_gender_male"]),
+                "female": float(props["pl_gender_female"]),
+                "other": float(props["pl_gender_other"]),
+            }
+
+        return {
+            "mean_age": float(mean_age),
+            "std_age": float(std_age),
+            "prop_male": props["male"],
+            "prop_female": props["female"],
+            "prop_other": props["other"],
+        }
