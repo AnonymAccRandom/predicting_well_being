@@ -165,7 +165,7 @@ condense_cv_results:
     file_base_name: cv_results
     result_strs:
       main: main
-      supp: npers  # nnse, npers, altimp  # TODO Assign this dynamically, then we can create all tables at once
+      supp: npers  # not used ATM, assigned dynamically
     mapping:
       feature_combination: "Predictor configuration"
       model: "Prediction model"
