@@ -548,7 +548,9 @@ class SanityChecker:
             full_data: Full participant-level DataFrame containing metadata, outcome variables, and MAC-level predictors.
         """
         meta_cols_to_keep = ["other_country", "other_years_of_participation"]
-        crit_cols_to_keep = [col for col in full_data.columns if col.startswith("crit_")]
+        crit_cols_to_keep = [
+            col for col in full_data.columns if col.startswith("crit_")
+        ]
         mac_cols_to_keep = [col for col in full_data.columns if col.startswith("mac_")]
 
         cols = meta_cols_to_keep + crit_cols_to_keep + mac_cols_to_keep
@@ -559,9 +561,7 @@ class SanityChecker:
 
     @staticmethod
     def _print_sample_stats(
-            df: pd.DataFrame,
-            crit_col: str,
-            group_by: str = "emotions_vs_all"
+        df: pd.DataFrame, crit_col: str, group_by: str = "emotions_vs_all"
     ) -> None:
         """
         Computes and prints group-wise summary statistics for a criterion variable.
@@ -585,19 +585,36 @@ class SanityChecker:
         working_df = pd.DataFrame({crit_col: data})
 
         if group_by == "dataset":
-            working_df["group"] = df.loc[data.index].index.to_series().str.extract(r'^([^_]+)')[0].str.lower()
+            working_df["group"] = (
+                df.loc[data.index]
+                .index.to_series()
+                .str.extract(r"^([^_]+)")[0]
+                .str.lower()
+            )
 
         if group_by == "emotions_vs_all":
-            working_df["group"] = df.loc[data.index].index.to_series().str.startswith("emotions").astype(int)
+            working_df["group"] = (
+                df.loc[data.index]
+                .index.to_series()
+                .str.startswith("emotions")
+                .astype(int)
+            )
 
         elif group_by == "country":
             if "other_country" not in df.columns:
-                raise ValueError("Missing column 'other_country' for grouping by country.")
+                raise ValueError(
+                    "Missing column 'other_country' for grouping by country."
+                )
             working_df["group"] = df.loc[data.index, "other_country"].str.lower()
 
         elif group_by == "country_year":
-            if "other_country" not in df.columns or "other_years_of_participation" not in df.columns:
-                raise ValueError("Missing metadata columns for grouping by country and year.")
+            if (
+                "other_country" not in df.columns
+                or "other_years_of_participation" not in df.columns
+            ):
+                raise ValueError(
+                    "Missing metadata columns for grouping by country and year."
+                )
             countries = df.loc[data.index, "other_country"].str.lower()
             years = df.loc[data.index, "other_years_of_participation"]
 
@@ -619,8 +636,13 @@ class SanityChecker:
             working_df["group"] = bucketed
 
         elif group_by == "country_bucket_year":
-            if "other_country" not in df.columns or "other_years_of_participation" not in df.columns:
-                raise ValueError("Missing metadata columns for grouping by country_bucket_year.")
+            if (
+                "other_country" not in df.columns
+                or "other_years_of_participation" not in df.columns
+            ):
+                raise ValueError(
+                    "Missing metadata columns for grouping by country_bucket_year."
+                )
 
             countries = df.loc[data.index, "other_country"].str.lower()
             years = df.loc[data.index, "other_years_of_participation"]
@@ -645,14 +667,18 @@ class SanityChecker:
             mean_emotions = vals_emotions.mean()
             sd_emotions = vals_emotions.std()
             n_emotions = len(vals_emotions)
-            print(f"  Emotions (1): Mean = {mean_emotions:.3f}, SD = {sd_emotions:.3f}, N = {n_emotions}")
+            print(
+                f"  Emotions (1): Mean = {mean_emotions:.3f}, SD = {sd_emotions:.3f}, N = {n_emotions}"
+            )
 
             # Group 0: all others
             vals_all = working_df.loc[working_df["group"] == 0, crit_col]
             mean_all = vals_all.mean()
             sd_all = vals_all.std()
             n_all = len(vals_all)
-            print(f"  All others (0): Mean = {mean_all:.3f}, SD = {sd_all:.3f}, N = {n_all}")
+            print(
+                f"  All others (0): Mean = {mean_all:.3f}, SD = {sd_all:.3f}, N = {n_all}"
+            )
 
             # Difference in means
             diff = mean_emotions - mean_all
@@ -668,15 +694,21 @@ class SanityChecker:
                 mean_val = values.mean()
                 std_val = values.std()
                 group_means.append(mean_val)
-                print(f"  {group_name}: Mean = {mean_val:.3f}, SD = {std_val:.3f}, N = {len(values)}")
+                print(
+                    f"  {group_name}: Mean = {mean_val:.3f}, SD = {std_val:.3f}, N = {len(values)}"
+                )
 
             # Compute mean and SD across group means
             if group_means:
                 overall_mean = np.mean(group_means)
                 overall_sd = np.std(group_means, ddof=1)  # sample SD
-                print(f"  Across-groups: Mean of means = {overall_mean:.3f}, SD of means = {overall_sd:.3f}")
+                print(
+                    f"  Across-groups: Mean of means = {overall_mean:.3f}, SD of means = {overall_sd:.3f}"
+                )
 
-    def sanity_check_pred_vs_true(self, full_data: pd.DataFrame, groupby: str = "sample") -> None:
+    def sanity_check_pred_vs_true(
+        self, full_data: pd.DataFrame, groupby: str = "sample"
+    ) -> None:
         """
         Analyzes predicted vs. true criterion values across samples to identify unexpected predictive patterns.
 
@@ -762,7 +794,9 @@ class SanityChecker:
                 )
 
                 # Compute and save summary statistics
-                summary_statistics = self._compute_pred_true_stats(pred_true_data, stats_decimals=3)
+                summary_statistics = self._compute_pred_true_stats(
+                    pred_true_data, stats_decimals=3
+                )
                 if cfg_pred_vs_true["summary_stats"]["store"]:
                     output_file = os.path.join(
                         dirpath, cfg_pred_vs_true["summary_stats"]["filename"]
@@ -789,9 +823,7 @@ class SanityChecker:
         sample_data = {}
         for index, pred_true_list in index_data.items():
             sample_name = index.split("_")[0]
-            sample_data.setdefault(
-                sample_name, {"pred": [], "true": [], "diff": []}
-            )
+            sample_data.setdefault(sample_name, {"pred": [], "true": [], "diff": []})
 
             for pred, true in pred_true_list:
                 sample_data[sample_name]["pred"].append(pred)
@@ -801,9 +833,7 @@ class SanityChecker:
 
     @staticmethod
     def _data_to_compare_country_years(
-            index_data: NestedDict,
-            full_data: pd.DataFrame,
-            filter_n_samples: int = None
+        index_data: NestedDict, full_data: pd.DataFrame, filter_n_samples: int = None
     ) -> NestedDict:
         """
         Prepares a Dict that contains the data for analyzing a specific country-year
@@ -846,10 +876,10 @@ class SanityChecker:
 
     @staticmethod
     def _data_to_compare_country_groups(
-            index_data: NestedDict,
-            full_data: pd.DataFrame,
-            filter_n_samples: int = None,
-            group_by_year: bool = True
+        index_data: NestedDict,
+        full_data: pd.DataFrame,
+        filter_n_samples: int = None,
+        group_by_year: bool = True,
     ) -> NestedDict:
         """
         Groups prediction data by country, collapsing years and separating into
@@ -895,7 +925,9 @@ class SanityChecker:
         return grouped_data
 
     @staticmethod
-    def _compute_pred_true_stats(pred_true_data: NestedDict, stats_decimals: int = 3) -> NestedDict:
+    def _compute_pred_true_stats(
+        pred_true_data: NestedDict, stats_decimals: int = 3
+    ) -> NestedDict:
         """
         Computes descriptive and evaluation metrics for predicted vs. true values by dataset.
 
@@ -921,16 +953,18 @@ class SanityChecker:
                 "true_std": np.round(np.std(values["true"]), stats_decimals),
                 "diff_mean": np.round(np.mean(values["diff"]), stats_decimals),
                 "diff_std": np.round(np.std(values["diff"]), stats_decimals),
-                "r2_score": np.round(
-                    r2_score(values["true"], values["pred"]), stats_decimals
-                )
-                if len(values["pred"]) > 1
-                else None,
-                "spearman_rho": np.round(
-                    spearmanr(values["true"], values["pred"])[0], stats_decimals
-                )
-                if len(values["pred"]) > 1
-                else None,
+                "r2_score": (
+                    np.round(r2_score(values["true"], values["pred"]), stats_decimals)
+                    if len(values["pred"]) > 1
+                    else None
+                ),
+                "spearman_rho": (
+                    np.round(
+                        spearmanr(values["true"], values["pred"])[0], stats_decimals
+                    )
+                    if len(values["pred"]) > 1
+                    else None
+                ),
             }
             for sample_name, values in pred_true_data.items()
         }

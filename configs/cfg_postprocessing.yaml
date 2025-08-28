@@ -1,7 +1,7 @@
 # This configuration file enables the configuration of certain parameters for the postprocessing of the results.
 # All final results where generated with the current configuration.
 
-execute_postprocessing: false
+execute_postprocessing: true
 
 methods_to_apply:
   - condense_cv_results
@@ -518,6 +518,16 @@ calculate_exp_lin_models:
     percentage_of_features: 1
     n_features_thresh: 6
 
+analysis_missings:
+  to_exclude:
+    - other
+    - mac
+  compare_missings:
+    base_file_name: pairwise_missing_tests.xlsx
+  compare_samples:
+    base_file_name: ICCs.xlsx
+
+
 create_supp_files:
   lin_coefs_output_filename: run_2012_lin_model_coefs
   shap_output_filename: run_2012_shap_values
@@ -525,7 +535,7 @@ create_supp_files:
 
 measurement_invariance:
   general:
-    min_samples_per_country: [200, 150, 100] # to iterate over
+    min_samples_per_country: [200, 150, 100]  # [200, 150, 100]
     to_include:
       - state_wb_items
       - trait_wb_items
@@ -690,14 +700,14 @@ measurement_invariance:
 
       # ─────────────── Trait well-being ───────────────
     trait_wb_items:
-      - name: pa_trait  # TODO verify with codeboooks!
+      - name: pa_trait
         to_include: ["cocout", "cocoesm", "cocoms"]
         mapping:
           cocout:  {awb_3: panasx_4, awb_5: panasx_5, awb_6: panasx_6}
           cocoesm: {panasx_4: panasx_4, panasx_5: panasx_5, panasx_6: panasx_6}
           cocoms:  {panasx_4: panasx_4, panasx_5: panasx_5, panasx_6: panasx_6}
 
-      - name: na_trait  # TODO verify with codeboooks!
+      - name: na_trait
         to_include: ["pia", "cocoesm", "cocoms"]
         mapping:
           pia:     {trait_angry: panasx_1, trait_sad: panasx_2, panas20: panasx_3}
@@ -718,8 +728,6 @@ measurement_invariance:
           pia:     {angry: state_na1, sad: state_na2, afraid: state_na3}
           cocoesm: {state_na1: state_na1, state_na2: state_na2, state_na3: state_na3}
           cocoms:  {state_na1: state_na1, state_na2: state_na2, state_na3: state_na3}
-
-
 
   across_countries:
     trait_features:
@@ -820,7 +828,7 @@ measurement_invariance:
       - name: conventionalist_authoritarianism
         item_names: [ksa3_7, ksa3_8, ksa3_9]
 
-    # ─────────────── Trait well-being ───────────────
+    # ─────────────── Well-being ───────────────
     trait_wb_items:
       - name: pa_trait
         item_names: [panasx_4, panasx_5, panasx_6]

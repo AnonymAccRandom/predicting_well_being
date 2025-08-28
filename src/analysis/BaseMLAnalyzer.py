@@ -5,12 +5,11 @@ import itertools
 import json
 import os
 import pickle
-import sys
 import threading
 from abc import ABC, abstractmethod
 from itertools import product
 from types import SimpleNamespace
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import numpy as np
 import pandas as pd
@@ -809,12 +808,12 @@ class BaseMLAnalyzer(ABC):
                     ] = score
 
                 if self.cfg_analysis["store_pred_and_true"]:
-                    pred_vs_true_rep[f"outer_fold_{cv_idx}"][
-                        f"imp_{num_imp}"
-                    ] = self.get_pred_and_true_crit(
-                        grid_search=SimpleNamespace(best_estimator_=best_model),
-                        X_test=X_test_current,
-                        y_test=y_test_current,
+                    pred_vs_true_rep[f"outer_fold_{cv_idx}"][f"imp_{num_imp}"] = (
+                        self.get_pred_and_true_crit(
+                            grid_search=SimpleNamespace(best_estimator_=best_model),
+                            X_test=X_test_current,
+                            y_test=y_test_current,
+                        )
                     )
 
                 del best_model
@@ -869,7 +868,9 @@ class BaseMLAnalyzer(ABC):
         """
         df.index = df.index.astype(str)
 
-        samples_included = self.cfg_analysis["feature_sample_combinations"][self.feature_combination]
+        samples_included = self.cfg_analysis["feature_sample_combinations"][
+            self.feature_combination
+        ]
 
         for study in samples_included:
             col_name = f"study_var_{study}"
@@ -888,7 +889,9 @@ class BaseMLAnalyzer(ABC):
         Returns:
         - pd.DataFrame: DataFrame with study indicator columns removed.
         """
-        samples_included = self.cfg_analysis["feature_sample_combinations"][self.feature_combination]
+        samples_included = self.cfg_analysis["feature_sample_combinations"][
+            self.feature_combination
+        ]
 
         for study in samples_included:
             col_name = f"study_var_{study}"
@@ -902,10 +905,10 @@ class BaseMLAnalyzer(ABC):
         imputed_datasets: dict[str, dict[str, pd.DataFrame]],
         y: pd.Series,
         inner_cv: ShuffledGroupKFold,
-        param_grid: list[dict[str, any]],
+        param_grid: list[dict[str, Any]],
         scorer: callable,
         n_jobs: int,
-    ) -> dict[str, any]:
+    ) -> dict[str, Any]:
         """
         Mimics the behavior of GridSearchCV using pre-imputed datasets and parallelizes evaluation across parameter grids.
 
@@ -935,14 +938,14 @@ class BaseMLAnalyzer(ABC):
         """
 
         def evaluate_param_combination(
-            params: dict[str, any],
+            params: dict[str, Any],
             imputed_datasets: dict[str, dict[str, pd.DataFrame]],
             y: pd.Series,
             inner_cv: ShuffledGroupKFold,
             scorer: callable,
             pipeline: any,
             meta_vars: list[str],
-        ) -> dict[str, any]:
+        ) -> dict[str, Any]:
             """
             Evaluates a single parameter combination across inner CV folds.
 
@@ -1206,9 +1209,8 @@ class BaseMLAnalyzer(ABC):
                     X=X_train,
                     holdout_frac=holdout_frac,
                     random_state=42,
-                    num_imp=num_imp
+                    num_imp=num_imp,
                 )
-            sys.exit()
 
         else:
             self.logger.log(
@@ -1230,7 +1232,9 @@ class BaseMLAnalyzer(ABC):
             )
             X_val_test_imputed = imputer.transform(X=X_val_or_test)
 
-            X_train_imputed = X_train_imputed.drop(columns=self.meta_vars, errors="ignore")
+            X_train_imputed = X_train_imputed.drop(
+                columns=self.meta_vars, errors="ignore"
+            )
             X_val_test_imputed = X_val_test_imputed.drop(
                 columns=self.meta_vars, errors="ignore"
             )

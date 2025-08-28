@@ -76,7 +76,7 @@ feature_sample_combinations:
 # No control analyses needed for these combinations
 no_control_lst: [pl, srmc, sens, mac, all_in]
 
-# List of personality variable to exclude for the analysis without personality features
+# List of personality variables to exclude for the analysis without personality features
 pl_vars_to_exclude:
   - pl_sociability
   - pl_assertiveness
@@ -149,9 +149,9 @@ imputation:
   pmm_k: 5
   country_grouping_col: other_country
   years_col: other_years_of_participation
-  add_study_var: true  # If true, adds binary columns for each study
-  evaluate_robustness: false  # If true, check imputation performance (based on hold-out data)
-  holdout_fractions: [0.1, 0.3, 0.5, 0.8]
+  add_study_var: false  # If true, adds binary columns for each study for alternative imputations
+  evaluate_robustness: false  # Could be used to check imputation performances, not used
+  holdout_fractions: [0.1, 0.3, 0.5, 0.8]  # Could be used to check imputation performances, not used
 
 scoring_metric:
   inner_cv_loop:  # For optimizing hyperparameters

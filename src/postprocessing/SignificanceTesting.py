@@ -46,7 +46,7 @@ class SignificanceTesting:
         models (list[str]): List of models to compare (e.g., `elasticnet`, `randomforestregressor`).
         samples_to_include (list[str]): List of sample subsets (e.g., `selected`, `control`).
         decimals (int): Number of decimal places for rounding results.
-        delta_r2_strng (str): String representation for the delta R² value.
+        delta_r2_str: (str): String representation for the delta R² value.
         t_strng (str): String representation for the t-value.
         p_strng (str): String representation for the p-value.
         p_fdr_strng (str): String representation for the FDR-corrected p-value.
@@ -708,10 +708,7 @@ class SignificanceTesting:
                     cv_results_model1, cv_results_model2
                 )
                 d, d_lower, d_upper = self.compute_effect_size_CI(
-                    t_val=t_val,
-                    n=500,
-                    alpha=0.05,
-                    round_digits=2
+                    t_val=t_val, n=500, alpha=0.05, round_digits=2
                 )
                 delta_R2 = np.round(
                     np.round(mean2, self.decimals) - np.round(mean1, self.decimals),
@@ -726,7 +723,7 @@ class SignificanceTesting:
                     self.p_strng: p_val,  # Kept as is, assuming p-value formatting is handled elsewhere
                     self.d_strng: d,
                     self.d_lower_strng: d_lower,
-                    self.d_higher_strng: d_upper
+                    self.d_higher_strng: d_upper,
                 }
 
         return defaultdict_to_dict(sig_results_dct)
@@ -801,10 +798,7 @@ class SignificanceTesting:
                             pl_combo_data, pl_data
                         )
                         d, d_lower, d_upper = self.compute_effect_size_CI(
-                            t_val=t_val,
-                            n=500,
-                            alpha=0.05,
-                            round_digits=2
+                            t_val=t_val, n=500, alpha=0.05, round_digits=2
                         )
                         delta_R2 = np.round(
                             np.round(mean_combo, self.decimals)
@@ -822,7 +816,7 @@ class SignificanceTesting:
                             self.t_strng: f"{t_val:.{self.decimals}f}",
                             self.d_strng: d,
                             self.d_lower_strng: d_lower,
-                            self.d_higher_strng: d_upper
+                            self.d_higher_strng: d_upper,
                         }
 
         return defaultdict_to_dict(sig_results_dct)
@@ -853,6 +847,7 @@ class SignificanceTesting:
 
             Args:
                 d: The Dict to traverse.
+                p_strng: The string representation of the 'p_val' value we used.
             """
             for key, value in d.items():
                 if isinstance(value, dict):
@@ -926,13 +921,17 @@ class SignificanceTesting:
             round_digits: Number of decimal places for rounding. Defaults to 2.
 
         Returns:
-            Tuple[float, float, float]: Rounded Cohen's dz, lower CI bound, upper CI bound.
+            tuple[float, float, float]: Rounded Cohen's dz, lower CI bound, upper CI bound.
         """
         d = t_val / np.sqrt(n)
-        se_d = np.sqrt(1 / n + (d ** 2) / (2 * n))
+        se_d = np.sqrt(1 / n + (d**2) / (2 * n))
         t_crit = t_dist.ppf(1 - alpha / 2, df=n - 1)
 
         lower = d - t_crit * se_d
         upper = d + t_crit * se_d
 
-        return round(d, round_digits), round(lower, round_digits), round(upper, round_digits)
+        return (
+            round(d, round_digits),
+            round(lower, round_digits),
+            round(upper, round_digits),
+        )

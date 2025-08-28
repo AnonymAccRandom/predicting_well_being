@@ -313,7 +313,6 @@ class DescriptiveStatistics:
         else:
             return None
 
-
     def create_wb_items_stats_per_dataset(
         self,
         dataset: str,
@@ -925,7 +924,9 @@ class DescriptiveStatistics:
                           The first level indicates the dataset ("all" or "cocoesm"),
                           and the second level indicates the statistic ("num_unique", "min", "max").
         """
-        mac_data_cols = [col for col in self.full_data.columns if col.startswith("mac_")]
+        mac_data_cols = [
+            col for col in self.full_data.columns if col.startswith("mac_")
+        ]
         df_all = self.full_data[mac_data_cols].copy()
         df_cocoesm = df_all.loc[self.full_data.index.str.startswith("cocoesm")]
 
@@ -937,7 +938,7 @@ class DescriptiveStatistics:
                 summary[col] = {
                     "num_unique": non_na.nunique(),
                     "min": non_na.min(),
-                    "max": non_na.max()
+                    "max": non_na.max(),
                 }
             return pd.DataFrame(summary).T  # Transpose to have variables as rows
 
@@ -945,18 +946,19 @@ class DescriptiveStatistics:
         summary_cocoesm = summarize(df_cocoesm)
 
         combined = pd.concat(
-            [summary_all, summary_cocoesm],
-            axis=1,
-            keys=["all", "cocoesm"]
+            [summary_all, summary_cocoesm], axis=1, keys=["all", "cocoesm"]
         )
         combined = combined.round(decimals)
-        combined.index = apply_name_mapping(list(combined.index), name_mapping=self.name_mapping, prefix=True)
+        combined.index = apply_name_mapping(
+            list(combined.index), name_mapping=self.name_mapping, prefix=True
+        )
 
         return combined
 
     @staticmethod
-    def create_age_gender_descriptives(dataset: str, data: pd.DataFrame,
-                                       decimals = 2) -> dict[str, float]:
+    def create_age_gender_descriptives(
+        dataset: str, data: pd.DataFrame, decimals=2
+    ) -> dict[str, float]:
         """
         Computes mean and standard deviation of age, and gender proportions for a given dataset.
 

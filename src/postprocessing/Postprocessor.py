@@ -130,6 +130,7 @@ class Postprocessor:
             full_data=self.full_data,
             data_saver=self.data_saver,
             name_mapping=self.name_mapping,
+            cfg_postprocessing=self.cfg_postprocessing,
         )
 
         self.cv_result_processor = CVResultProcessor(
@@ -255,7 +256,9 @@ class Postprocessor:
                             for fc_to_compare in perf_increase_cfg["fc_to_compare"]:
                                 perc_increase = (
                                     self.cv_result_processor.calculate_perc_increase(
-                                        cv_results=cv_results_dct[crit][samples_to_include],
+                                        cv_results=cv_results_dct[crit][
+                                            samples_to_include
+                                        ],
                                         metric=metric,
                                         model=model,
                                         feature_combos_to_compare=fc_to_compare,
@@ -263,9 +266,9 @@ class Postprocessor:
                                     )
                                 )
                                 fc_to_compare_str = ", ".join(fc_to_compare)
-                                perf_increase_dct[crit][samples_to_include][metric][model][
-                                    fc_to_compare_str
-                                ] = {"% increase": perc_increase}
+                                perf_increase_dct[crit][samples_to_include][metric][
+                                    model
+                                ][fc_to_compare_str] = {"% increase": perc_increase}
             if perf_increase_cfg["store"]:
                 perf_inc_path = os.path.join(
                     self.cv_shap_results_path, perf_increase_cfg["filename"]
@@ -292,14 +295,15 @@ class Postprocessor:
 
     def prediction_sanity_checks(self) -> None:
         """Sanity checks the predictions vs. the true values for selected analysis and plots the results."""
-        full_data = self.data_loader.read_pkl(os.path.join(
-            self.cfg_preprocessing["general"]["path_to_preprocessed_data"],
-            self.cfg_preprocessing["general"]["full_data_filename"])
+        full_data = self.data_loader.read_pkl(
+            os.path.join(
+                self.cfg_preprocessing["general"]["path_to_preprocessed_data"],
+                self.cfg_preprocessing["general"]["full_data_filename"],
+            )
         )
         self.sanity_checker.sanity_check_mac(full_data)
         self.sanity_checker.sanity_check_pred_vs_true(
-            full_data,
-            groupby="country_group"
+            full_data, groupby="country_group"
         )
 
     def create_descriptives(self) -> None:
@@ -330,9 +334,10 @@ class Postprocessor:
 
         # Dataset specific descriptives calculation (e.g., wb-outcomes, sociodemographcis)
         for dataset in self.datasets:
-            soc_dem_dct[dataset] = self.descriptives_creator.create_age_gender_descriptives(
-                dataset=dataset,
-                data=self.full_data.copy()
+            soc_dem_dct[dataset] = (
+                self.descriptives_creator.create_age_gender_descriptives(
+                    dataset=dataset, data=self.full_data.copy()
+                )
             )
 
             traits_base_filename = self.cfg_postprocessing["create_descriptives"][
@@ -534,13 +539,13 @@ class Postprocessor:
         )
 
     def _save_nested_results(  # keep name for compatibility
-            self,
-            results: dict[str, Union[pd.DataFrame, dict]],
-            base_result_dir: str | os.PathLike,
-            *,
-            flatten: bool = True,  # True → filenames; False → folders
-            file_ext: str = "xlsx",  # "xlsx", "csv", …
-            sep: str = "__",  # joiner for flat filenames
+        self,
+        results: dict[str, Union[pd.DataFrame, dict]],
+        base_result_dir: str | os.PathLike,
+        *,
+        flatten: bool = True,  # True → filenames; False → folders
+        file_ext: str = "xlsx",  # "xlsx", "csv", …
+        sep: str = "__",  # joiner for flat filenames
     ) -> None:
         """
         Saves a nested dictionary of DataFrames to disk in either flat or hierarchical structure.

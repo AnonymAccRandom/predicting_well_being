@@ -58,7 +58,7 @@ class EmotionsPreprocessor(BasePreprocessor):
 
     def clean_trait_col_duplicates(
         self, df_traits: pd.DataFrame
-    ) -> pd.DataFrame:  # TODO: Is this in PreReg / Paper? Check
+    ) -> pd.DataFrame:
         """
         Cleans up column names in a trait DataFrame by handling duplicates and suffixes.
 

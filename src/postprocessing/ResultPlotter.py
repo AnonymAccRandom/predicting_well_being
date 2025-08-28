@@ -210,10 +210,10 @@ class ResultPlotter:
 
     @staticmethod
     def get_individual_performances(
-            feature_combos: list[str],
-            samples_to_include: str,
-            crit: str,
-            base_dir: str = "../results/sig_tests_1312",
+        feature_combos: list[str],
+        samples_to_include: str,
+        crit: str,
+        base_dir: str = "../results/sig_tests_1312",
     ) -> NestedDict:
         """
         Loads individual Pearson values from CV result JSON files across multiple models and feature combinations.
@@ -222,6 +222,8 @@ class ResultPlotter:
         - Iterates over specified feature combinations.
         - For each feature combo, loads JSON files from both model subdirectories (elasticnet and randomforestregressor).
         - Extracts all Pearson correlation values from each file and aggregates them by model.
+
+        Note: Not used in the final plots
 
         Args:
             feature_combos: List of feature combination names to process.
@@ -244,14 +246,18 @@ class ResultPlotter:
         for feature_combo in feature_combos:
             result[feature_combo] = {}
             for model in ["elasticnet", "randomforestregressor"]:
-                model_path = os.path.join(base_dir, feature_combo, samples_to_include, crit, model)
+                model_path = os.path.join(
+                    base_dir, feature_combo, samples_to_include, crit, model
+                )
                 if not os.path.exists(model_path):
                     continue
 
                 pearson_values_all = []
 
                 for filename in os.listdir(model_path):
-                    if not filename.startswith("cv_results_rep_") or not filename.endswith(".json"):
+                    if not filename.startswith(
+                        "cv_results_rep_"
+                    ) or not filename.endswith(".json"):
                         continue
 
                     file_path = os.path.join(model_path, filename)
@@ -273,7 +279,10 @@ class ResultPlotter:
 
     def filter_cv_results_data(
         self,
-        cv_results_dct: NestedDict, crit: str, metric: str, samples_to_include: str
+        cv_results_dct: NestedDict,
+        crit: str,
+        metric: str,
+        samples_to_include: str,
     ) -> NestedDict:
         """
         Filters the cv_results_dct for a specific criterion, samples_to_include, and metric
@@ -311,16 +320,16 @@ class ResultPlotter:
         }
 
         individual_results = self.get_individual_performances(
-            feature_combos = list(filtered_results.keys()),
-            samples_to_include = samples_to_include,
-            crit = crit,
+            feature_combos=list(filtered_results.keys()),
+            samples_to_include=samples_to_include,
+            crit=crit,
         )
 
         merged_results = {
             feature: {
                 model: {
                     **filtered_results[feature][model],
-                    "vals": individual_results[feature][model]
+                    "vals": individual_results[feature][model],
                 }
                 for model in filtered_results.get(feature, {})
                 if model in individual_results.get(feature, {})
@@ -585,7 +594,6 @@ class ResultPlotter:
         row_idx: int,
         ref_feature_combo: str = "pl",
         rel: float = None,
-        add_individual_data_points: bool = False,
     ) -> None:
         """
         Creates a horizontal bar plot with error bars for a given feature group and its associated models.
@@ -634,18 +642,6 @@ class ResultPlotter:
                 edgecolor=None,
                 alpha=alpha,
             )
-
-            if add_individual_data_points:  # not used ATM
-                self._plot_violin_points_vertical(
-                    ax=ax,
-                    values=data[model_key]["vals"],
-                    y_center=y_position_to_plot,
-                    bar_width=bar_width,
-                    color="black",
-                    alpha=0.15,
-                    size=6,
-                    max_width_frac=0.4,  # smaller = closer to the error bar
-                )
 
             self._annotate_model_label(
                 ax=ax,
@@ -759,7 +755,10 @@ class ResultPlotter:
                     bar_len=base_value,
                     fontweight="bold",
                     model=model,
-                    model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
+                    model_label_map={
+                        "elasticnet": "ENR",
+                        "randomforestregressor": "RFR",
+                    },
                     fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
                     x_offset_frac=0.05,  # tweak if you want a tad more / less padding
                 )
@@ -785,7 +784,10 @@ class ResultPlotter:
                     bar_len=base_value,
                     fontweight="bold",
                     model=model,
-                    model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
+                    model_label_map={
+                        "elasticnet": "ENR",
+                        "randomforestregressor": "RFR",
+                    },
                     fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
                     x_offset_frac=0.05,  # tweak if you want a tad more / less padding
                 )
@@ -804,15 +806,15 @@ class ResultPlotter:
 
     @staticmethod
     def _plot_violin_points_vertical(
-            ax: Axes,
-            values: list[float],
-            y_center: float,
-            bar_width: float,
-            color: str = "black",
-            alpha: float = 0.25,
-            size: float = 8,
-            max_width_frac: float = 0.18,
-            bw: float | None = None,
+        ax: Axes,
+        values: list[float],
+        y_center: float,
+        bar_width: float,
+        color: str = "black",
+        alpha: float = 0.25,
+        size: float = 8,
+        max_width_frac: float = 0.18,
+        bw: float | None = None,
     ) -> None:
         """
         Draws a violin-shaped cloud of points around a horizontal bar by compressing only vertically.
@@ -841,7 +843,15 @@ class ResultPlotter:
             return
 
         if x.size == 1:
-            ax.scatter(x, np.full(1, y_center), c=color, s=size, alpha=alpha, linewidths=0, zorder=4)
+            ax.scatter(
+                x,
+                np.full(1, y_center),
+                c=color,
+                s=size,
+                alpha=alpha,
+                linewidths=0,
+                zorder=4,
+            )
             return
 
         std = float(np.std(x))
@@ -850,7 +860,7 @@ class ResultPlotter:
             bw = 1.06 * std * (n ** (-1 / 5)) if std > 0 else 1e-3
 
         diffs = (x[:, None] - x[None, :]) / bw
-        dens = np.exp(-0.5 * diffs ** 2).sum(axis=1) / (np.sqrt(2 * np.pi) * bw * n)
+        dens = np.exp(-0.5 * diffs**2).sum(axis=1) / (np.sqrt(2 * np.pi) * bw * n)
         dmax = dens.max() if np.isfinite(dens).all() and dens.max() > 0 else 1.0
         dens = dens / dmax
 
@@ -861,16 +871,16 @@ class ResultPlotter:
 
     @staticmethod
     def _annotate_model_label(
-            ax: Axes,
-            *,
-            y_pos: float,
-            bar_len: float,
-            fontweight: str = "normal",
-            model: str,
-            model_label_map: dict[str, str],
-            fontsizes: dict[str, int],
-            x_offset_frac: float = 0.01,
-            extra_text_kwargs: dict[str, Any] | None = None,
+        ax: Axes,
+        *,
+        y_pos: float,
+        bar_len: float,
+        fontweight: str = "normal",
+        model: str,
+        model_label_map: dict[str, str],
+        fontsizes: dict[str, int],
+        x_offset_frac: float = 0.01,
+        extra_text_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """
         Adds a model label to the left edge of a horizontal bar in a bar plot.
@@ -1593,7 +1603,7 @@ class ResultPlotter:
         model: str,
         store_plot: bool,
         filename: Optional[str] = None,
-        group_by: str = "sample"
+        group_by: str = "sample",
     ) -> None:
         """
         Creates a parity plot of predicted vs. true values for all samples.
@@ -1623,17 +1633,21 @@ class ResultPlotter:
             for i, sample_name in enumerate(samples):
                 pred_values = sample_data[sample_name]["pred"]
                 true_values = sample_data[sample_name]["true"]
-                ax.scatter(true_values, pred_values,
-                           #color=color,
-                           label=sample_name)
+                ax.scatter(
+                    true_values,
+                    pred_values,
+                    label=sample_name,
+                )
 
         if group_by == "sample":
             for i, sample_name in enumerate(samples):
                 pred_values = sample_data[sample_name]["pred"]
                 true_values = sample_data[sample_name]["true"]
-                ax.scatter(true_values, pred_values,
-                           #color=color,
-                           label=sample_name)
+                ax.scatter(
+                    true_values,
+                    pred_values,
+                    label=sample_name,
+                )
 
         min_val = min(
             [min(sample_data[s]["true"] + sample_data[s]["pred"]) for s in samples]
@@ -1810,7 +1824,7 @@ class ResultPlotter:
             samples_to_include=samples_to_include,
             crit=crit,
             model=model,
-            mapping_str=mapping_str
+            mapping_str=mapping_str,
         )
         os.makedirs(plot_path, exist_ok=True)
         filename = f"{plot_name}.{plot_format}"
@@ -1850,7 +1864,7 @@ class ResultPlotter:
         Returns:
             str: The normalized file path where the plot should be stored.
         """
-        path_components = [None, None, None, None, None ]
+        path_components = [None, None, None, None, None]
 
         for path_idx, var in enumerate(
             [samples_to_include, crit, model, feature_combination, mapping_str]

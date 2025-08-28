@@ -70,7 +70,7 @@ class CocomsPreprocessor(BasePreprocessor):
 
     @staticmethod
     def cocoms_processing_before_merging(
-        df_dct: dict[str, pd.DataFrame]
+        df_dct: dict[str, pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
         """
         Applies dataset-specific preprocessing to the CoCoMS trait DataFrames before merging.
@@ -294,10 +294,10 @@ class CocomsPreprocessor(BasePreprocessor):
         )
 
         # Wave 3
-        df_states.loc[
-            df_states["studyWave"] == 3, "close_interactions_raw"
-        ] = df_states.loc[df_states["studyWave"] == 3, "selection_partners_01"].replace(
-            wave3_mapping
+        df_states.loc[df_states["studyWave"] == 3, "close_interactions_raw"] = (
+            df_states.loc[df_states["studyWave"] == 3, "selection_partners_01"].replace(
+                wave3_mapping
+            )
         )
         df_states.loc[
             (df_states["studyWave"] == 3) & (df_states["close_interactions_raw"] == -1),
@@ -524,15 +524,19 @@ class CocomsPreprocessor(BasePreprocessor):
             df_states["esm_timedelta"], unit="s"
         )
         df_states["interaction_time"] = df_states["time_social_interaction"].apply(
-            lambda x: timedelta(hours=int(x), minutes=int((x % 1) * 60))
-            if pd.notna(x)
-            else pd.NaT
+            lambda x: (
+                timedelta(hours=int(x), minutes=int((x % 1) * 60))
+                if pd.notna(x)
+                else pd.NaT
+            )
         )
 
         df_states["selection_medium_00"] = df_states.apply(
-            lambda row: 1
-            if (row["esm_timedelta"] - row["interaction_time"]) > timedelta(hours=1)
-            else row["selection_medium_00"],
+            lambda row: (
+                1
+                if (row["esm_timedelta"] - row["interaction_time"]) > timedelta(hours=1)
+                else row["selection_medium_00"]
+            ),
             axis=1,
         )
 

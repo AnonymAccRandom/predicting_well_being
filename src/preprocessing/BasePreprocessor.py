@@ -420,7 +420,7 @@ class BasePreprocessor(ABC):
         Returns:
             pd.DataFrame: A DataFrame filtered to include only the relevant columns.
         """
-        if df_type in["person_level", "esm_based"]:
+        if df_type in ["person_level", "esm_based"]:
             cols_to_be_selected = ["country"]
         else:
             cols_to_be_selected = []
@@ -1442,9 +1442,11 @@ class BasePreprocessor(ABC):
             "zpid",
         ]:  # need to adjust these datasets for two bursts
             df_states["percentage_responses"] = df_states.apply(
-                lambda row: row["number_responses"] / (max_responses * 2)
-                if row[study_wave_col[self.dataset]] == "Both"
-                else row["number_responses"] / max_responses,
+                lambda row: (
+                    row["number_responses"] / (max_responses * 2)
+                    if row[study_wave_col[self.dataset]] == "Both"
+                    else row["number_responses"] / max_responses
+                ),
                 axis=1,
             )
         else:

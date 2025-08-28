@@ -20,7 +20,6 @@ class LinearRegressor:
     using statsmodels. The class supports data preprocessing, feature selection, missing value imputation,
     and regression model creation. Additionally, it provides functionality to create regression coefficient
     tables in Excel format.
-    # TODO: Add out of sample prediction? maybe simply make a two-fold split?
 
     Attributes:
         cfg_preprocessing (NestedDict): Yaml config specifying details on preprocessing (e.g., scales, items).
@@ -61,7 +60,7 @@ class LinearRegressor:
         model_for_features: str,
         meta_vars: list[str],
         num_features: int = 6,
-    ):
+    ) -> None:
         """
         Initializes the LinearRegressor class with preprocessing, analysis, and regression settings.
 
@@ -152,11 +151,12 @@ class LinearRegressor:
             years_col=self.years_col,
         )
 
-    def get_regression_data(self):
+    def get_regression_data(self) -> None:
         """
-
-        Returns:
-
+        Prepares the input and target data for explanatory regression analysis.
+        - Selects and stores the target variable `y`.
+        - Selects initial feature set `X` from the data.
+        - Applies feature selection based on SHAP values and stores the refined feature set.
         """
         self.dataselector.select_samples()
         X = self.dataselector.select_features()

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 from missmecha.analysis import (
@@ -26,7 +28,13 @@ class SampleMissingsAnalyzer:
         data_saver: Object providing methods to persist analysis results (e.g., to Excel or JSON).
     """
 
-    def __init__(self, full_data: pd.DataFrame, name_mapping: NestedDict, data_saver: "DataSaver") -> None:
+    def __init__(
+        self,
+        full_data: pd.DataFrame,
+        name_mapping: NestedDict,
+        data_saver: "DataSaver",
+        cfg_postprocessing: NestedDict,
+    ) -> None:
         """
         Initializes the SampleMissingsAnalyzer with the full dataset and required utilities.
 
@@ -38,6 +46,12 @@ class SampleMissingsAnalyzer:
         self.full_data = full_data
         self.data_saver = data_saver
         self.name_mapping = name_mapping
+        self.cfg_postprocessing = cfg_postprocessing
+
+        self.desc_dir = os.path.join(
+            self.cfg_postprocessing["general"]["data_paths"]["base_path"],
+            self.cfg_postprocessing["general"]["data_paths"]["descriptives"],
+        )
 
     def compare_missings(self, method: str = "pairwise") -> None:
         """
@@ -58,7 +72,9 @@ class SampleMissingsAnalyzer:
                 - "pairwise": Performs pairwise t-tests and saves the results.
         """
         df = self.full_data.copy(deep=True)
-        df = df.loc[:, ~pd.Index(df.columns).str.startswith(("other", "mac"))]
+
+        to_exclude = self.cfg_postprocessing["analysis_missings"]["to_exclude"]
+        df = df.loc[:, ~pd.Index(df.columns).str.startswith(to_exclude)]
 
         prefixes = set(df.index.astype(str).str.extract(r"^([A-Za-z]+_+)")[0])
 
@@ -71,7 +87,6 @@ class SampleMissingsAnalyzer:
             if sub_df.shape[1] == 0 or sub_df.shape[0] == 0:
                 continue
 
-            print(prefix)
             compute_missing_rate(sub_df)
 
             if method == "little":
@@ -83,16 +98,18 @@ class SampleMissingsAnalyzer:
                     continue
 
             elif method == "pairwise":
-                print(sub_df.columns)
-                p_matrix, n_sig, n_non_sig = self._conduct_pairwise_missing_tests(sub_df)
-                print(p_matrix.columns)
-                filename = f"../results/descriptives/{prefix}pairwise_missing_tests.xlsx"
+                p_matrix, n_sig, n_non_sig = self._conduct_pairwise_missing_tests(
+                    sub_df
+                )
+                base_file_name = self.cfg_postprocessing["analysis_missings"][
+                    "compare_missings"
+                ]["base_file_name"]
+                filename = os.path.join(self.desc_dir, f"{prefix}{base_file_name}")
                 self.data_saver.save_excel(p_matrix, filename)
-                print(prefix)
+
                 print(f"Number of non-significant tests: {n_non_sig}")
                 print(f"Number of significant tests: {n_sig}")
                 print("----")
-
 
     def compare_samples(self, decimals: int = 3) -> None:
         """
@@ -115,7 +132,11 @@ class SampleMissingsAnalyzer:
         df = self.full_data.copy(deep=True)
         df = df.loc[:, ~pd.Index(df.columns).str.startswith(("other", "mac"))].copy()
         df["prefix"] = (
-            df.index.to_series().astype(str).str.extract(r"^([A-Za-z]+_+)").iloc[:, 0].fillna("__unlabeled__")
+            df.index.to_series()
+            .astype(str)
+            .str.extract(r"^([A-Za-z]+_+)")
+            .iloc[:, 0]
+            .fillna("__unlabeled__")
         )
 
         results = []
@@ -135,26 +156,27 @@ class SampleMissingsAnalyzer:
             print(f"{col}: {icc}")
             results.append((col, icc))
 
-        result = pd.DataFrame(results, columns=["variable", "icc"]).round(decimals)# .sort_values("icc", ascending=False)
+        result = pd.DataFrame(results, columns=["variable", "icc"]).round(decimals)
         mean_icc = result["icc"].mean()
         sd_icc = result["icc"].std()
 
         result["variable"] = apply_name_mapping(
             result["variable"].tolist(),
             self.name_mapping,
-            prefix=True  # or False, depending on your variable naming format
+            prefix=True,
         )
+        base_file_name = self.cfg_postprocessing["analysis_missings"][
+            "compare_samples"
+        ]["base_file_name"]
+        filename = os.path.join(self.desc_dir, f"{base_file_name}")
 
-        filename = f"../results/descriptives/ICCs.xlsx"
         self.data_saver.save_excel(result, filename)
         print(f"Mean ICC: {mean_icc}")
         print(f"SD ICC: {sd_icc}")
 
     def _conduct_pairwise_missing_tests(
-            self,
-            X: pd.DataFrame,
-            decimals: int = 3
-    ) -> pd.DataFrame:
+        self, X: pd.DataFrame, decimals: int = 3
+    ) -> tuple[pd.DataFrame, int, int]:
         """
         Conducts pairwise statistical tests to assess whether the presence of missing values
         in one variable is systematically related to the values of other variables.
@@ -191,8 +213,11 @@ class SampleMissingsAnalyzer:
                 if len(group1) > 1 and len(group2) > 1:
                     if is_binary:
                         contingency = pd.crosstab(
-                            pd.Series([0] * len(group1) + [1] * len(group2), name="missing_flag"),
-                            pd.Series(np.concatenate([group1, group2]), name="value")
+                            pd.Series(
+                                [0] * len(group1) + [1] * len(group2),
+                                name="missing_flag",
+                            ),
+                            pd.Series(np.concatenate([group1, group2]), name="value"),
                         )
                         p = chi2_contingency(contingency, correction=False)[1]
                     else:
@@ -204,7 +229,9 @@ class SampleMissingsAnalyzer:
 
         # Apply pretty names to both rows and columns
         pretty_names = apply_name_mapping(list(vars), self.name_mapping, prefix=True)
-        assert len(vars) == len(pretty_names), "Not all vars were transformed to pretty format"
+        assert len(vars) == len(
+            pretty_names
+        ), "Not all vars were transformed to pretty format"
 
         p_matrix.index = pretty_names
         p_matrix.columns = pretty_names

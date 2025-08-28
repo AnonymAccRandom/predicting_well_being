@@ -76,8 +76,6 @@ class PiaPreprocessor(BasePreprocessor):
         df_states["country"] = "germany"
         return df_states
 
-
-
     def merge_states(self, df_dct: dict[str, pd.DataFrame]) -> pd.DataFrame:
         """
         Retrieves the DataFrame for state-level data from the input dictionary.

@@ -489,9 +489,9 @@ class ClusterSummarizer:
 
         shap_ia_results_processed["top_interactions"] = top_interactions_per_order
         shap_ia_results_processed["top_interacting_features"] = top_interacting_features
-        shap_ia_results_processed[
-            "abs_ia_value_agg_reps_imps_samples"
-        ] = abs_ia_values_agg_reps_imps_samples
+        shap_ia_results_processed["abs_ia_value_agg_reps_imps_samples"] = (
+            abs_ia_values_agg_reps_imps_samples
+        )
 
         print("Processed all SHAP IA values.")
 

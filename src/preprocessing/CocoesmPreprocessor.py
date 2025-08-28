@@ -207,4 +207,3 @@ class CocoesmPreprocessor(BasePreprocessor):
         """
         df = df.merge(self.relationship, on=self.raw_esm_id_col, how="left")
         return df
-

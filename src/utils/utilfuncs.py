@@ -70,9 +70,7 @@ def format_df(
 
     for column in columns:
         if column in df:
-            df[column] = df[column].apply(
-                lambda x: custom_round(x, decimals)
-            )  # TODO: use normal round?
+            df[column] = df[column].apply(lambda x: custom_round(x, decimals))
 
     if capitalize:
         df.columns = df.columns.str.capitalize()
@@ -138,7 +136,7 @@ def create_defaultdict(n_nesting: int, default_factory: Any = int) -> defaultdic
 
 
 def defaultdict_to_dict(
-    dct: Union[defaultdict, dict, NestedDict]
+    dct: Union[defaultdict, dict, NestedDict],
 ) -> Union[dict, NestedDict]:
     """
     Recursively converts a defaultdict into a standard Python dictionary.
