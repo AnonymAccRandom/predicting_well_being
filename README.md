@@ -268,6 +268,12 @@ To reproduce the results, adjust the params in `cfg_analysis.yaml` in lines 7-10
 The feature combinations in `cfg_analysis.yaml` with the suffix `nnse` represent the analysis excluding the neuroticism facets and 
 self-esteem. 
 
+The feature combinations in `cfg_analysis.yaml` with the suffix `npers` represent the analysis excluding all personality traits.
+
+For the supplementary analyses using the alternative imputation strategy, no separate config entry is provided. However, 
+setting `add_study: true` in the `Imputation` section of `cfg_analysis.yaml will trigger the alternative imputation 
+procedure and generate the corresponding results.
+
 ### Walk-Through 
 We provide a walk-through how to reproduce the ML-based analysis for a specific configuration. 
 The **data** folder contains the raw data (data/raw) as well as the preprocessed data (data/preprocessed) for the machine learning-based analysis. 
@@ -298,9 +304,8 @@ Run the main function after setting up the above parameters (this may take a whi
 #### Step 3: Summarize analysis results 
 
 Modify the result_dir in `utils/ClusterSummarizer.py` to the directory where the results are stored.
-In this case, this would be `../../results/analysis/elasticnet/wb_state/srmc/all/`.
-
-Run the ClusterSummarizer.py script to summarize the results. This produces e.g., M and SD of prediction results as reported in the paper. 
+Run the ClusterSummarizer.py script to summarize the results.
+This produces e.g., M and SD of prediction results across outer folds as reported in the paper.
 
 #### Step 4: Run postprocessing
 Note: Some steps only make sense if all results are calculated. 
@@ -352,9 +357,11 @@ predicting_well_being/
 │   ├── postprocessing/
 │   │   ├── CVResultProcessor.py
 │   │   ├── DescriptiveStatistics.py
+│   │   ├── InvarianceTester.py
 │   │   ├── LinearRegressor.py
 │   │   ├── PostProcessor.py
 │   │   ├── ResultPlotter.py
+│   │   ├── SampleMissingsAnalyzer.py
 │   │   ├── ShapProcessor.py
 │   │   ├── SignificanceTesting.py
 │   │   ├── SuppFileCreator.py

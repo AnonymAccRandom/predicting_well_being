@@ -20,7 +20,7 @@ class Logger:
 
     def __new__(
         cls,
-        log_dir: str = "tests",
+        log_dir: str = "../logs",
         log_file: str = "log",
         rank: int = 0,
         rep: int = 0,
