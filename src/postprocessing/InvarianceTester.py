@@ -5,6 +5,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import rpy2.robjects as ro
+from rpy2.robjects.vectors import StrVector
 
 ro.r('install.packages("lavaan.mi", repos="https://cran.rstudio.com")')
 
@@ -14,6 +15,7 @@ from rpy2.robjects.packages import importr
 
 semtools = importr("semTools")
 lavaan = importr("lavaan")
+
 
 def _df_to_r(df: pd.DataFrame) -> object:
     """
@@ -31,9 +33,11 @@ def _df_to_r(df: pd.DataFrame) -> object:
     with localconverter(ro.default_converter + pandas2ri.converter):
         return ro.conversion.py2rpy(df)
 
+
 from src.utils.DataLoader import DataLoader
 from src.utils.DataSaver import DataSaver
 from src.utils.utilfuncs import NestedDict
+
 
 class InvarianceTester:
     """
@@ -45,15 +49,27 @@ class InvarianceTester:
     Key functionalities include:
     - Loading and organizing preprocessed item-level data across multiple datasets
     - Running CFA-based invariance tests across both countries (within a unified dataset) and across datasets
-    - Returning tidy outputs with model fit statistics (RMSEA, CFI, χ²-diff) and flags for each level of invariance
+    - Returning tidy outputs with model fit statistics (RMSEA, CFI) and flags for each level of invariance
 
     Methods assume that all required dataset-specific configuration is provided in the form of nested dictionaries,
     parsed from YAML or equivalent config files.
+
+    Attributes:
+        cfg_preprocessing: Nested dictionary containing paths and settings for data input and filtering.
+        cfg_postprocessing: Nested dictionary containing construct definitions, mappings, and invariance test parameters.
+        name_mapping: Nested dictionary containing names and mappings for personality constructs.
+        cfg_invariance: Nested dictionary with invariance-specific test settings extracted from `cfg_postprocessing`.
+        data_loader: Instance of DataLoader, responsible for loading preprocessed data.
+        data_saver: Instance of DataSaver, responsible for saving results and processed data.
+        data_dict: Internal dictionary to store loaded datasets (initialized as None until data is loaded).
     """
 
-    def __init__(self, cfg_preprocessing: NestedDict,
-                 cfg_postprocessing: NestedDict,
-                 name_mapping: NestedDict) -> None:
+    def __init__(
+        self,
+        cfg_preprocessing: NestedDict,
+        cfg_postprocessing: NestedDict,
+        name_mapping: NestedDict,
+    ) -> None:
         """
         Initializes the InvarianceTester with configuration settings and utility objects.
 
@@ -87,22 +103,77 @@ class InvarianceTester:
         Sets:
             dict[str, pd.DataFrame]: A dictionary where keys are source identifiers and values are the corresponding DataFrames.
         """
-        path_to_preprocessed_data = self.cfg_preprocessing["general"]["path_to_preprocessed_data"]
+        path_to_preprocessed_data = self.cfg_preprocessing["general"][
+            "path_to_preprocessed_data"
+        ]
         data_dict = {"trait_features": {}, "trait_wb_items": {}, "state_wb_items": {}}
 
         for file in os.listdir(path_to_preprocessed_data):
-            if file.startswith("wb_items") and "state_wb_items" in self.cfg_invariance["general"]["to_include"]:
+            if (
+                file.startswith("wb_items")
+                and "state_wb_items" in self.cfg_invariance["general"]["to_include"]
+            ):
                 dataset = file.split("_")[-1]
-                data_dict["state_wb_items"][dataset] = self.data_loader.read_pkl(os.path.join(path_to_preprocessed_data, file))
-            if file.startswith("raw_trait_df") and "trait_features" in self.cfg_invariance["general"]["to_include"]:
+                df = self.data_loader.read_pkl(
+                    os.path.join(path_to_preprocessed_data, file)
+                )
+                df_proc = self.create_person_means(df=df, dataset=dataset)
+                data_dict["state_wb_items"][dataset] = df_proc
+            if (
+                file.startswith("raw_trait_df")
+                and "trait_features" in self.cfg_invariance["general"]["to_include"]
+            ):
                 dataset = file.split("_")[-1]
-                data_dict["trait_features"][dataset] = self.data_loader.read_pkl(os.path.join(path_to_preprocessed_data, file))
-            if file.startswith("trait_wb_items") and "trait_wb_items" in self.cfg_invariance["general"]["to_include"]:
+                data_dict["trait_features"][dataset] = self.data_loader.read_pkl(
+                    os.path.join(path_to_preprocessed_data, file)
+                )
+            if (
+                file.startswith("trait_wb_items")
+                and "trait_wb_items" in self.cfg_invariance["general"]["to_include"]
+            ):
                 dataset = file.split("_")[-1]
-                data_dict["trait_wb_items"][dataset] = self.data_loader.read_pkl(os.path.join(path_to_preprocessed_data, file))
+                data_dict["trait_wb_items"][dataset] = self.data_loader.read_pkl(
+                    os.path.join(path_to_preprocessed_data, file)
+                )
 
         data_dict = {k: v for k, v in data_dict.items() if v}
         setattr(self, "data_dict", data_dict)
+
+    def create_person_means(self, df: pd.DataFrame, dataset: str) -> pd.DataFrame:
+        """
+        Aggregates the current dataset to the participant level by computing
+        column means for each person (identified by 'participant').
+
+        This method:
+        - Groups the dataset by the participant identifier.
+        - Computes the mean for all numeric columns within each participant.
+        - Returns a new DataFrame at the person-level.
+
+        Args:
+            df: df for one dataset with multiple measures per person (ESM)
+            dataset: dataset to aggregate, e.g. "cocoesm"
+
+        Returns:
+            pd.DataFrame: Aggregated dataset with one row per participant.
+        """
+        id_col = self.cfg_preprocessing["general"]["esm_id_col"][dataset]
+        country_col = "country"
+
+        if id_col not in df.columns:
+            raise ValueError(
+                f"Expected identifier column '{id_col}' not found in data."
+            )
+        if country_col not in df.columns:
+            raise ValueError(f"Expected column '{country_col}' not found in data.")
+
+        df_person = df.groupby(id_col).agg(
+            {
+                **{col: "mean" for col in df.select_dtypes(include="number").columns},
+                country_col: "first",
+            }
+        )
+
+        return df_person
 
     def test_invariance_across_countries(self) -> NestedDict:
         """
@@ -137,11 +208,15 @@ class InvarianceTester:
 
             # Iterate over different number of min participants per country
             out_inner_tables = {}
-            for min_samples_per_country in self.cfg_invariance["general"]["min_samples_per_country"]:
+            for min_samples_per_country in self.cfg_invariance["general"][
+                "min_samples_per_country"
+            ]:
                 current_df = deepcopy(vals["cocoesm"])
 
-                df_filtered = current_df[current_df["country"].map(current_df["country"].value_counts())
-                                 >= min_samples_per_country]
+                df_filtered = current_df[
+                    current_df["country"].map(current_df["country"].value_counts())
+                    >= min_samples_per_country
+                ]
 
                 merged_dict = self._build_cocoesm_dfs(
                     construct_cfg=invariance_cfg_country[type_of_var],
@@ -164,7 +239,9 @@ class InvarianceTester:
                         block_rows.append(res)
 
                 out_inner_tables[min_samples_per_country] = (
-                    pd.concat(block_rows, axis=0, join="outer", ignore_index=True) if block_rows else pd.DataFrame()
+                    pd.concat(block_rows, axis=0, join="outer", ignore_index=True)
+                    if block_rows
+                    else pd.DataFrame()
                 )
             out_tables[type_of_var] = out_inner_tables
 
@@ -180,7 +257,7 @@ class InvarianceTester:
 
         The analysis:
         - Focuses on constructs assessed with at least three items
-        - Includes only constructs administered identically across at least five out of nine datasets (TODO Check)
+        - Includes only constructs administered identically across at least 3 out of 6 datasets
         - Applies model fit criteria (RMSEA, CFI) and change indices (ΔRMSEA, ΔCFI) to evaluate invariance
         - Returns one summary table per block with model fit statistics and invariance flags for each construct
 
@@ -189,12 +266,15 @@ class InvarianceTester:
                 A dictionary mapping each variable block (e.g., "trait_features") to a DataFrame
                 summarizing RMSEA, CFI, and invariance flags for each construct across datasets.
         """
-        invariance_cfg = self.cfg_postprocessing["measurement_invariance"]["across_datasets"]
+        invariance_cfg = self.cfg_postprocessing["measurement_invariance"][
+            "across_datasets"
+        ]
         out_tables = {}
 
-        for type_of_var in ("trait_wb_items", "state_wb_items"):
-            merged_dict = self._merge_all_dataset_dfs(type_of_var=type_of_var,
-                                                      invariance_cfg=invariance_cfg[type_of_var])
+        for type_of_var in self.data_dict:
+            merged_dict = self._merge_all_dataset_dfs(
+                type_of_var=type_of_var, invariance_cfg=invariance_cfg[type_of_var]
+            )
 
             # var_type for mapping
             if type_of_var == "trait_features":
@@ -217,12 +297,16 @@ class InvarianceTester:
                     block_rows.append(res)
 
             out_tables[type_of_var] = (
-                pd.concat(block_rows, ignore_index=True) if block_rows else pd.DataFrame()
+                pd.concat(block_rows, ignore_index=True)
+                if block_rows
+                else pd.DataFrame()
             )
 
         return out_tables
 
-    def _merge_all_dataset_dfs(self, type_of_var: str, invariance_cfg: NestedDict) -> dict[str, pd.DataFrame]:
+    def _merge_all_dataset_dfs(
+        self, type_of_var: str, invariance_cfg: NestedDict
+    ) -> dict[str, pd.DataFrame]:
         """
         Constructs harmonized item-level DataFrames across datasets for each construct.
 
@@ -265,8 +349,8 @@ class InvarianceTester:
 
     @staticmethod
     def _build_cocoesm_dfs(
-            construct_cfg: list[dict],
-            df: pd.DataFrame,
+        construct_cfg: list[dict],
+        df: pd.DataFrame,
     ) -> dict[str, pd.DataFrame]:
         """
         Builds harmonized item-level DataFrames per construct using only the CoCoESM dataset.
@@ -300,7 +384,7 @@ class InvarianceTester:
 
     def _get_target_items(self, post_cfg: NestedDict) -> list[str]:
         """
-        Determines the canonical item names for a construct using the cocointernational naming scheme.
+        Determines the canonical item names for a construct using the cocoesm naming scheme.
 
         This method resolves the harmonized item names expected across datasets based on the provided
         mapping configuration. If no explicit mapping is defined, it defaults to the item order in the
@@ -341,9 +425,9 @@ class InvarianceTester:
         mapping_block = post_cfg.get("mapping", {})
         return mapping_block.get(dataset, {})
 
-    def _get_config_for_type(self,
-                             var_type: str,
-                             config_type: str = "preprocessing") -> list[dict]:
+    def _get_config_for_type(
+        self, var_type: str, config_type: str = "preprocessing"
+    ) -> list[dict]:
         """
         Return the config list for a given variable type and config type.
 
@@ -370,12 +454,12 @@ class InvarianceTester:
             raise NotImplementedError(f"Unknown variable type: {var_type}")
 
     def _get_items_and_construct(  # noqa: N802
-            self,
-            var_type:str,
-            dataset: str,
-            df: pd.DataFrame,
-            var_config: dict,
-            add_country: bool = False
+        self,
+        var_type: str,
+        dataset: str,
+        df: pd.DataFrame,
+        var_config: dict,
+        add_country: bool = False,
     ) -> tuple[pd.DataFrame, str]:
         """
         Extracts a numeric item-level DataFrame and builds a one-factor CFA model string.
@@ -424,9 +508,9 @@ class InvarianceTester:
 
     @staticmethod
     def conduct_cfa(
-            data: pd.DataFrame,
-            model_str: str,
-            group_col: Optional[str] = "country",
+        data: pd.DataFrame,
+        model_str: str,
+        group_col: Optional[str] = "country",
     ) -> pd.DataFrame | None:
         """
         Conducts a one-factor confirmatory factor analysis (CFA) using lavaan, separately for each group.
@@ -462,16 +546,24 @@ class InvarianceTester:
             groups = [None] if group_col is None else data[group_col].dropna().unique()
 
             for grp in groups:
-                df_sub = data[item_cols] if grp is None else data.loc[data[group_col] == grp, item_cols]
+                df_sub = (
+                    data[item_cols]
+                    if grp is None
+                    else data.loc[data[group_col] == grp, item_cols]
+                )
 
                 # need at least 2 items & >1 row
                 if df_sub.shape[1] < 2 or df_sub.shape[0] < 3:
                     continue
 
                 r_df = _df_to_r(df_sub)
-                fit = lavaan.sem(model_str, data=r_df, missing="fiml", meanstructure=True)
+                fit = lavaan.sem(
+                    model_str, data=r_df, missing="fiml", meanstructure=True
+                )
 
-                rmsea, cfi = map(float, lavaan.fitmeasures(fit, ro.StrVector(("rmsea", "cfi"))))
+                rmsea, cfi = map(
+                    float, lavaan.fitmeasures(fit, ro.StrVector(("rmsea", "cfi")))
+                )
                 rows.append(
                     {
                         "factor": factor_name,
@@ -508,21 +600,17 @@ class InvarianceTester:
             An R lavaan model fit object.
         """
         return lavaan.sem(
-            model,
-            data=r_df,
-            missing="fiml",
-            group=group,
-            meanstructure=True
+            model, data=r_df, missing="fiml", group=group, meanstructure=True
         )
 
     def run_invariance(
-            self,
-            df: pd.DataFrame,
-            items: list[str],
-            factor: str,
-            group_col: str,
-            method_items: list[str] | None = None,
-            var_type: str = "pl"
+        self,
+        df: pd.DataFrame,
+        items: list[str],
+        factor: str,
+        group_col: str,
+        method_items: list[str] | None = None,
+        var_type: str = "pl",
     ) -> pd.DataFrame | None:
         """
         Performs multi-group CFA to test configural, metric, and scalar invariance.
@@ -559,12 +647,17 @@ class InvarianceTester:
         fit_base = self._fit_multi_group(model, r_df, group_col)
 
         fit_weak = self._fit_multi_group(model, r_df, group_col, equal=["loadings"])
-        fit_strong = self._fit_multi_group(model, r_df, group_col,
-                                           equal=["loadings", "intercepts"])
-        try:
-            out = self._compare_invariance_fits(fit_base, fit_weak, fit_strong, n_items=len(items))
+        fit_strong = self._fit_multi_group(
+            model, r_df, group_col, equal=["loadings", "intercepts"]
+        )
 
-        except:  # Any lavaan error, e.g. non-convergence
+        try:
+            out = self._compare_invariance_fits(
+                fit_base, fit_weak, fit_strong, n_items=len(items)
+            )
+        except Exception as e:  # Any lavaan error, e.g. non-convergence
+            print(f"{factor} model not converged")
+            print(f"Exception: {type(e).__name__} — {e}")
             return pd.DataFrame()
 
         out = out.round(3)
@@ -576,13 +669,45 @@ class InvarianceTester:
         if group_col == "country":
             out.insert(2, "Number of Countries", df[group_col].nunique())
 
-        return out
+        out_str = self._format_float_columns(
+            out, cols=["CFI", "RMSEA", "delta_CFI", "delta_RMSEA"]
+        )
+
+        return out_str
+
+    @staticmethod
+    def _format_float_columns(
+        df: pd.DataFrame, cols: list[str], decimals: int = 3
+    ) -> pd.DataFrame:
+        """
+        Formats specified float columns to fixed decimal places as strings,
+        while leaving other columns unchanged. NaN values remain NaN.
+
+        Args:
+            df: Input DataFrame.
+            cols: List of column names to format.
+            decimals: Number of decimals to keep.
+
+        Returns:
+            pd.DataFrame: Copy of df with selected columns formatted as strings.
+        """
+        df_formatted = df.copy()
+        for col in cols:
+            if col in df_formatted.columns:
+                df_formatted[col] = df_formatted[col].apply(
+                    lambda x: (
+                        f"{x:.{decimals}f}"
+                        if isinstance(x, float) and not np.isnan(x)
+                        else x
+                    )
+                )
+        return df_formatted
 
     @staticmethod
     def _build_invariance_model(
-            factor: str,
-            items: list[str],
-            method_items: list[str] | None = None,
+        factor: str,
+        items: list[str],
+        method_items: list[str] | None = None,
     ) -> str:
         """
         Constructs a Lavaan model string for confirmatory factor analysis (CFA).
@@ -607,10 +732,10 @@ class InvarianceTester:
 
     @staticmethod
     def _fit_multi_group(
-            model: str,
-            r_df,
-            group_col: str,
-            equal: list[str] | None = None,
+        model: str,
+        r_df,
+        group_col: str,
+        equal: list[str] | None = None,
     ) -> object:
         """
         Fits a multi-group CFA model in lavaan with optional equality constraints.
@@ -641,15 +766,15 @@ class InvarianceTester:
 
     @staticmethod
     def _compare_invariance_fits(
-                                 fit_base,
-                                 fit_weak,
-                                 fit_strong,
-                                 n_items: int,
-                                 base_cfi: float = 0.90,
-                                 base_rmsea: float = 0.08,
-                                 delta_cfi_bound: float = -0.02,  # 0.01, 0.02
-                                 delta_rmsea_bound: float = 0.03,  # 0.015, 0.03
-                                 ) -> pd.DataFrame:
+        fit_base,
+        fit_weak,
+        fit_strong,
+        n_items: int,
+        base_cfi: float = 0.90,
+        base_rmsea: float = 0.08,
+        delta_cfi_bound: float = -0.01,
+        delta_rmsea_bound: float = 0.015,
+    ) -> pd.DataFrame:
         """
         Compares fit indices across nested CFA models to assess measurement invariance.
 
@@ -657,6 +782,7 @@ class InvarianceTester:
         - Extracting fit statistics (RMSEA, CFI) and their changes across models
         - Computing χ²-differences and associated p-values
         - Flagging invariance success based on established cutoffs
+        - If a specific model fit fails, only that model's row will contain NaN values.
 
         Args:
             fit_base: Lavaan model object for the configural model.
@@ -674,18 +800,49 @@ class InvarianceTester:
                 - Change indices (ΔRMSEA, ΔCFI)
                 - Binary flags indicating support for configural, metric, and scalar invariance
         """
-        cmp = semtools.compareFit(base=fit_base, weak=fit_weak, strong=fit_strong)
 
-        rmsea = list(cmp.slots["fit"].rx2("rmsea"))
-        cfi = list(cmp.slots["fit"].rx2("cfi"))
-        delta_rmsea = [np.nan] + list(cmp.slots["fit.diff"].rx2("rmsea"))
-        delta_cfi = [np.nan] + list(cmp.slots["fit.diff"].rx2("cfi"))
-        dfs = list(cmp.slots["fit"].rx2("df"))
+        def _measures(fit):
+            try:
+                vec = lavaan.fitMeasures(fit, StrVector(["rmsea", "cfi", "df"]))
+                rmsea = float(vec.rx2("rmsea")[0])
+                cfi = float(vec.rx2("cfi")[0])
+                df = int(vec.rx2("df")[0])
+                return rmsea, cfi, df
+            except Exception:
+                return np.nan, np.nan, np.nan
+
+        rmsea_b, cfi_b, df_b = _measures(fit_base)
+        rmsea_m, cfi_m, df_m = _measures(fit_weak)
+        rmsea_s, cfi_s, df_s = _measures(fit_strong)
+
+        rmsea = [rmsea_b, rmsea_m, rmsea_s]
+        cfi = [cfi_b, cfi_m, cfi_s]
+        dfs = [df_b, df_m, df_s]
+
+        delta_rmsea = [
+            np.nan,
+            (
+                rmsea[1] - rmsea[0]
+                if np.isfinite(rmsea[1]) and np.isfinite(rmsea[0])
+                else np.nan
+            ),
+            (
+                rmsea[2] - rmsea[1]
+                if np.isfinite(rmsea[2]) and np.isfinite(rmsea[1])
+                else np.nan
+            ),
+        ]
+        delta_cfi = [
+            np.nan,
+            cfi[1] - cfi[0] if np.isfinite(cfi[1]) and np.isfinite(cfi[0]) else np.nan,
+            cfi[2] - cfi[1] if np.isfinite(cfi[2]) and np.isfinite(cfi[1]) else np.nan,
+        ]
+        items = [n_items, n_items, n_items]
 
         out = pd.DataFrame(
             {
                 "MI": ["configural", "metric", "scalar"],
-                "Number of Items": n_items,
+                "Number of Items": items,
                 "Degrees of Freedom": dfs,
                 "RMSEA": rmsea,
                 "delta_RMSEA": delta_rmsea,
@@ -696,11 +853,25 @@ class InvarianceTester:
 
         # 1) Configural: evaluate fit of the *base* model itself
         cfg_ok = (out["CFI"] >= base_cfi) & (out["RMSEA"] <= base_rmsea)
-        out["Configural MI"] = np.where(out["MI"] == "configural", cfg_ok.astype(int), np.nan)
+        out["Configural MI"] = np.where(
+            (out["MI"] == "configural") & (out["Number of Items"] != 3),
+            cfg_ok.astype(int),
+            np.nan,
+        )
 
-        # 2 & 3) Weak & strong: same Δ-criterion, applied to their respective rows
-        delta_ok = (out["delta_CFI"] >= delta_cfi_bound) & (out["delta_RMSEA"] <= delta_rmsea_bound)
-        out["Metric MI"] = np.where(out["MI"] == "metric", delta_ok.astype(int), np.nan)
+        # 2) Metric (weak): if Number of Items == 3, compare to base; else use deltas
+        delta_ok = (out["delta_CFI"] >= delta_cfi_bound) & (
+            out["delta_RMSEA"] <= delta_rmsea_bound
+        )
+        out["Metric MI"] = np.where(
+            out["MI"] == "metric",
+            np.where(
+                out["Number of Items"] == 3, cfg_ok.astype(int), delta_ok.astype(int)
+            ),
+            np.nan,
+        )
+
+        # 3) Scalar (strong): unchanged — use delta criteria
         out["scalar MI"] = np.where(out["MI"] == "scalar", delta_ok.astype(int), np.nan)
 
         out = out.drop(columns="MI")
