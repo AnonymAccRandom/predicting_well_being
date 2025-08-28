@@ -132,11 +132,9 @@ class CVResultProcessor:
 
         for root, _, files in os.walk(base_dir):
             if cv_results_filename in files:
-                print(root)
                 # These analyses are not included in the tables
                 if "pl_srmc_control" in root or "srmc_control" in root:
                     continue
-
                 (
                     rearranged_key,
                     crit,
@@ -155,7 +153,6 @@ class CVResultProcessor:
                     },
                     cat_values=self.cat_mapping,
                 )
-
                 cv_results_summary = self.data_loader.read_json(
                     os.path.join(root, cv_results_filename)
                 )
@@ -180,7 +177,6 @@ class CVResultProcessor:
                                 "SD_within_folds_across_imps": f"{cv_results_summary['sd_within_folds_across_imps'][metric]:.{decimals}f}",
                             }
                         )
-
                     result_dct[crit][samples_to_include][feature_combination][model][
                         metric
                     ] = result_stats
@@ -231,7 +227,7 @@ class CVResultProcessor:
         metric: str,
         model: str,
         feature_combos_to_compare: tuple[str, str],
-        decimals: int = 3,
+        decimals: int = 1,  # e.g., 8.2%
     ) -> Union[float, None]:
         """
         Computes the percentage increase in performance between two feature combinations.
@@ -256,9 +252,8 @@ class CVResultProcessor:
             mean_key2 = float(cv_results[key2][model][metric]["M"])
 
             min_val, max_val = sorted([mean_key1, mean_key2])
-            ratio = max_val / min_val
-
-            return np.round(ratio, decimals)
+            pct_increase = (max_val - min_val) / min_val * 100.0
+            return float(np.round(pct_increase, decimals))
 
         else:
             return None
@@ -270,7 +265,7 @@ class CVResultProcessor:
         samples_to_include: str,
         output_dir: str,
         include_empty_col_between_models: bool = True,
-        supp_analysis: bool = False,
+        analysis: str = "main",
     ) -> None:
         """
         Generates and saves a cross-validation (CV) results table as an Excel file.
@@ -295,12 +290,13 @@ class CVResultProcessor:
             supp_analysis: Whether to include only the supplementary (nnse) analysis. Defaults to False.
                 This may be the analysis without personality or without neuroticism and self-esteem
         """
-        if supp_analysis:
-            feature_combo_mapping = self.feature_combo_name_mapping_supp
-            result_str = self.result_table_cfg["result_strs"]["supp"]
-        else:
+        if analysis == "main":
             feature_combo_mapping = self.feature_combo_name_mapping_main
             result_str = self.result_table_cfg["result_strs"]["main"]
+        else:
+            feature_combo_mapping = self.feature_combo_name_mapping_supp
+            result_str = analysis
+            data = {k: v for k, v in data.items() if k.endswith(result_str)}
 
         rows = [
             {
@@ -322,14 +318,17 @@ class CVResultProcessor:
         ]
 
         df = pd.DataFrame(rows)
-        df_pivot = df.pivot(
-            index=self.table_cat_name_mapping["feature_combination"],
-            columns=[
-                self.table_cat_name_mapping["model"],
-                self.table_cat_name_mapping["metric"],
-            ],
-            values="M (SD)",
-        )
+        try:
+            df_pivot = df.pivot(
+                index=self.table_cat_name_mapping["feature_combination"],
+                columns=[
+                    self.table_cat_name_mapping["model"],
+                    self.table_cat_name_mapping["metric"],
+                ],
+                values="M (SD)",
+            )
+        except:
+            return None
 
         # Custom order for metrics
         metric_order = list(self.metric_name_mapping.values())

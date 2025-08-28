@@ -221,28 +221,29 @@ class Postprocessor:
             self.data_saver.save_json(cv_results_dct, all_result_path)
 
         # Compute mean and standard deviation of the differences between main and nnse analyses
-        main_nnse_diff_cfg = cfg_condense_results["main_nnse_diffs"]
-        main_nnse_diff_dct = create_defaultdict(3, dict)
-        for crit in main_nnse_diff_cfg["crits"]:
-            for samples_to_include in main_nnse_diff_cfg["samples_to_include"]:
-                for metric in main_nnse_diff_cfg["metrics"]:
-                    (
-                        mean_diff,
-                        std_diff,
-                    ) = self.cv_result_processor.calculate_main_nnse_diff(
-                        cv_results=cv_results_dct[crit][samples_to_include],
-                        metric=metric,
-                    )
-                    main_nnse_diff_dct[crit][samples_to_include][metric] = {
-                        "M": mean_diff,
-                        "SD": std_diff,
-                    }
-        if cfg_condense_results["main_nnse_diffs"]["store"]:
-            nnse_diff_path = os.path.join(
-                self.cv_shap_results_path,
-                cfg_condense_results["main_nnse_diffs"]["filename"],
-            )
-            self.data_saver.save_json(main_nnse_diff_dct, nnse_diff_path)
+        if cfg_condense_results["main_nnse_diffs"]["run"]:
+            main_nnse_diff_cfg = cfg_condense_results["main_nnse_diffs"]
+            main_nnse_diff_dct = create_defaultdict(3, dict)
+            for crit in main_nnse_diff_cfg["crits"]:
+                for samples_to_include in main_nnse_diff_cfg["samples_to_include"]:
+                    for metric in main_nnse_diff_cfg["metrics"]:
+                        (
+                            mean_diff,
+                            std_diff,
+                        ) = self.cv_result_processor.calculate_main_nnse_diff(
+                            cv_results=cv_results_dct[crit][samples_to_include],
+                            metric=metric,
+                        )
+                        main_nnse_diff_dct[crit][samples_to_include][metric] = {
+                            "M": mean_diff,
+                            "SD": std_diff,
+                        }
+            if cfg_condense_results["main_nnse_diffs"]["store"]:
+                nnse_diff_path = os.path.join(
+                    self.cv_shap_results_path,
+                    cfg_condense_results["main_nnse_diffs"]["filename"],
+                )
+                self.data_saver.save_json(main_nnse_diff_dct, nnse_diff_path)
 
         if cfg_condense_results["perf_increase"]["calculate"]:
 
@@ -278,8 +279,8 @@ class Postprocessor:
         # Creates Excel tables
         for crit, crit_vals in cv_results_dct.items():
             for samples_to_include, samples_to_include_vals in crit_vals.items():
-                for supp_analysis in [True, False]:
-                    if supp_analysis and samples_to_include == "control":
+                for analysis in ["main", "nnse", "npers", "altimp"]:
+                    if analysis and samples_to_include == "control":
                         continue
 
                     data_for_table = merge_M_SD_in_dct(samples_to_include_vals)
@@ -289,7 +290,7 @@ class Postprocessor:
                         samples_to_include=samples_to_include,
                         data=data_for_table,
                         output_dir=self.cv_shap_results_path,
-                        supp_analysis=supp_analysis,
+                        analysis=analysis,
                         include_empty_col_between_models=True,
                     )
 

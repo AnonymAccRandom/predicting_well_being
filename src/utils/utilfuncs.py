@@ -319,6 +319,8 @@ def rearrange_path_parts(
             "Key Error indicating that we try to process analyses we do not include in the tables"
         )
         return None
+    print(rearranged_key)
+    print(  categorized_parts["feature_combination"])
 
     return (
         rearranged_key,

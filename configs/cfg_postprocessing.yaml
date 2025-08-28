@@ -32,28 +32,38 @@ general:
         pl_srmc_mac: "Person-lv + Situation-lv (ESM) + Country-lv"
         all_in: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv"
 
-      supp: # As currently implemented, do only include 1x Supp analysis and comment the other out, not ideal but ok
+      supp:
+        # As currently implemented, do only include 1x Supp analysis and comment the other out, not ideal but ok
 
         # Without neuroticism facets and self-esteem
-        # pl_nnse: "Person-lv without neuroticism facets and self-esteem"
-        # pl_srmc_nnse: "Person-lv + Situation-lv (ESM) without neuroticism facets and self-esteem"
-        # pl_sens_nnse: "Person-lv + Situation-lv (Sensing) without neuroticism facets and self-esteem"
-        # pl_srmc_sens_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) without neuroticism facets and self-esteem"
-        # pl_mac_nnse: "Person-lv + Country-lv without neuroticism facets and self-esteem"
-        # pl_srmc_mac_nnse: "Person-lv + Situation-lv (ESM) + Country-lv without neuroticism facets and self-esteem"
-        # all_in_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv without neuroticism facets and self-esteem"
+        pl_nnse: "Person-lv without neuroticism facets and self-esteem"
+        pl_srmc_nnse: "Person-lv + Situation-lv (ESM) without neuroticism facets and self-esteem"
+        pl_sens_nnse: "Person-lv + Situation-lv (Sensing) without neuroticism facets and self-esteem"
+        pl_srmc_sens_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) without neuroticism facets and self-esteem"
+        pl_mac_nnse: "Person-lv + Country-lv without neuroticism facets and self-esteem"
+        pl_srmc_mac_nnse: "Person-lv + Situation-lv (ESM) + Country-lv without neuroticism facets and self-esteem"
+        all_in_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv without neuroticism facets and self-esteem"
 
-        # Without personality
+        # Without personality, could adjust the dict items for table description, e.g., "peron-lv without personality"
         pl_npers: "Person-lv"
-        srmc: "Situation-lv (ESM)"
-        sens: "Situation-lv (Sensing)"
-        mac: "Country-lv"
         pl_srmc_npers: "Person-lv + Situation-lv (ESM)"
         pl_sens_npers: "Person-lv + Situation-lv (Sensing)"
         pl_srmc_sens_npers: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing)"
         pl_mac_npers: "Person-lv + Country-lv"
         pl_srmc_mac_npers: "Person-lv + Situation-lv (ESM) + Country-lv"
         all_in_npers: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv"
+
+        # Alternative imputations
+        pl_altimp: "Person-lv alternative imputations"
+        srmc_altimp: "Situation-lv (ESM) alternative imputations"
+        sens_altimp: "Situation-lv (Sensing) alternative imputations"
+        mac_altimp: "Country-lv alternative imputations"
+        pl_srmc_altimp: "Person-lv + Situation-lv (ESM) alternative imputations"
+        pl_sens_altimp: "Person-lv + Situation-lv (Sensing) alternative imputations"
+        pl_srmc_sens_altimp: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) alternative imputations"
+        pl_mac_altimp: "Person-lv + Country-lv alternative imputations"
+        pl_srmc_mac_altimp: "Person-lv + Situation-lv (ESM) + Country-lv alternative imputations"
+        all_in_altimp: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv alternative imputations"
 
       ia_values:
         srmc_ia_values: "Situation-lv (ESM): Interaction Values"
@@ -95,7 +105,7 @@ general:
 
   data_paths:
     base_path: "../results/"
-    main_results: cluster_results  # cluster_results This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
+    main_results: final_results  # cluster_results This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
     ia_values: ia_values_0912
     sig_tests: sig_tests_1312
     pred_vs_true: mac_pred_true
@@ -129,6 +139,7 @@ condense_cv_results:
     filename: "all_cv_results.json"
 
   main_nnse_diffs:
+    run: false   # Note: Not tested on final version
     crits: [ wb_state, wb_trait ]
     samples_to_include: [ selected ]
     metrics: [ pearson, r2 ]
@@ -145,6 +156,7 @@ condense_cv_results:
     decimals: 3
     fc_to_compare:
       - [pl, pl_srmc_mac]
+      - [pl_npers, pl_srmc_mac_npers]
     store: true
     filename: "perf_increase_percent.json"
 
@@ -153,7 +165,7 @@ condense_cv_results:
     file_base_name: cv_results
     result_strs:
       main: main
-      supp: npers  # nnse, npers, ...
+      supp: npers  # nnse, npers, altimp  # TODO Assign this dynamically, then we can create all tables at once
     mapping:
       feature_combination: "Predictor configuration"
       model: "Prediction model"
