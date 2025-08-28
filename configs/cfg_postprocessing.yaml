@@ -5,7 +5,7 @@ execute_postprocessing: true
 
 methods_to_apply:
   #- condense_cv_results
-  #- sanity_check_pred_vs_true
+  #- prediction_sanity_checks
   #- create_descriptives
   #- conduct_significance_tests
   #- create_cv_results_plots
@@ -20,24 +20,27 @@ general:
   feature_combinations:
     name_mapping:
       main:
-        pl: "Personal"
-        srmc: "Situational (ESM)"
-        sens: "Situational (Sensing)"
-        mac: "Societal"
-        pl_srmc: "Personal + Situational (ESM)"
-        pl_sens: "Personal + Situational (Sensing)"
-        pl_srmc_sens: "Personal + Situational (ESM) + Situational (Sensing)"
-        pl_mac: "Personal + Societal"
-        pl_srmc_mac: "Personal + Situational (ESM) + Societal"
-        all_in: "Personal + Situational (ESM) + Situational (Sensing) + Societal"
-      supp:
-        #pl_nnse: "Personal without neuroticism facets and self-esteem"
-        #pl_srmc_nnse: "Personal + Situational (ESM) without neuroticism facets and self-esteem"
-        #pl_sens_nnse: "Personal + Situational (Sensing) without neuroticism facets and self-esteem"
-        #pl_srmc_sens_nnse: "Personal + Situational (ESM) + Situational (Sensing) without neuroticism facets and self-esteem"
-        #pl_mac_nnse: "Personal + Societal without neuroticism facets and self-esteem"
-        #pl_srmc_mac_nnse: "Personal + Situational (ESM) + Societal without neuroticism facets and self-esteem"
-        #all_in_nnse: "Personal + Situational (ESM) + Situational (Sensing) + Societal without neuroticism facets and self-esteem"
+        pl: "Person-lv"
+        srmc: "Situation-lv (ESM)"
+        sens: "Situation-lv (Sensing)"
+        mac: "Country-lv"
+        pl_srmc: "Person-lv + Situation-lv (ESM)"
+        pl_sens: "Person-lv + Situation-lv (Sensing)"
+        pl_srmc_sens: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing)"
+        pl_mac: "Person-lv + Country-lv"
+        pl_srmc_mac: "Person-lv + Situation-lv (ESM) + Country-lv"
+        all_in: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv"
+
+      supp: # As currently implemented, do only include 1x Supp analysis and comment the other out
+
+        # Without neuroticism facets and self-esteem
+        # pl_nnse: "Person-lv without neuroticism facets and self-esteem"
+        # pl_srmc_nnse: "Person-lv + Situation-lv (ESM) without neuroticism facets and self-esteem"
+        # pl_sens_nnse: "Person-lv + Situation-lv (Sensing) without neuroticism facets and self-esteem"
+        # pl_srmc_sens_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) without neuroticism facets and self-esteem"
+        # pl_mac_nnse: "Person-lv + Country-lv without neuroticism facets and self-esteem"
+        # pl_srmc_mac_nnse: "Person-lv + Situation-lv (ESM) + Country-lv without neuroticism facets and self-esteem"
+        # all_in_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv without neuroticism facets and self-esteem"
 
         # Without personality
         pl_npers: "Personal without personality variables"
@@ -88,7 +91,7 @@ general:
 
   data_paths:
     base_path: "../results/"
-    main_results: cluster_results  # This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
+    main_results: cluster_results  # cluster_resultsThis should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
     ia_values: ia_values_0912
     sig_tests: sig_tests_1312
     pred_vs_true: mac_pred_true
@@ -155,7 +158,7 @@ sanity_check_pred_vs_true:
   reps_to_check: [0, 1]
 
   plot:
-    store: true
+    store: false
     filename: pred_true_parity_plot
     figure:
       width: 8
@@ -174,7 +177,7 @@ create_descriptives:
   traits_base_filename: trait_wb_items
 
   m_sd_table:
-    store: true
+    store: false
     filename: "vars_m_sd_table.xlsx"
     decimals: 2
     store_index: false
@@ -186,8 +189,16 @@ create_descriptives:
       - sens
       - mac
       - crit
-  wb_items:  # to ensure consistent tables
+  soc_dem:
     store: true
+    filename: "age_gender_per_dataset.json"
+
+  country_vars:
+    store: true
+    filename: "country_add_descriptives.xlsx"
+
+  wb_items:  # to ensure consistent tables
+    store: false
     filename: "wb_items_descriptive_table.xlsx"
     decimals: 2
 
@@ -214,7 +225,7 @@ create_descriptives:
       - Worried
 
   rel:
-    store: true
+    store: false
     filename: "crit_rel_per_sample.json"
     decimals: 2
     state:
@@ -327,7 +338,7 @@ create_cv_results_plots:
     axes:
       yticks:
         which: major
-        pad: 90
+        pad: 90  # 90
         length: 0
       ylabels:
         hor_align: left
@@ -344,7 +355,7 @@ create_cv_results_plots:
 
   legend:
     model_legend:
-      add: true
+      add: false  # Instead plot directly on the bars
       enr_color: lightgray
       enr_label: "ENR (Upper Bar)"
       rfr_color: gray
