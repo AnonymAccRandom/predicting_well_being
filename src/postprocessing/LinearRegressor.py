@@ -20,6 +20,7 @@ class LinearRegressor:
     using statsmodels. The class supports data preprocessing, feature selection, missing value imputation,
     and regression model creation. Additionally, it provides functionality to create regression coefficient
     tables in Excel format.
+    # TODO: Add out of sample prediction? maybe simply make a two-fold split?
 
     Attributes:
         cfg_preprocessing (NestedDict): Yaml config specifying details on preprocessing (e.g., scales, items).
