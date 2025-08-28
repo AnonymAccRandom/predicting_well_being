@@ -537,7 +537,130 @@ class SanityChecker:
 
         return df_sensing
 
-    def sanity_check_pred_vs_true(self) -> None:
+    def sanity_check_mac(self, full_data: pd.DataFrame) -> None:
+        """
+        Performs descriptive checks on country-level predictors to diagnose unexpected MAC effects.
+
+        This method filters the input DataFrame to retain only metadata, criterion, and MAC-level variables.
+        It then prints summary statistics for each criterion variable grouped by:
+        - Dataset
+        - Country bucket
+        - Country bucket by year
+
+        Args:
+            full_data: Full participant-level DataFrame containing metadata, outcome variables, and MAC-level predictors.
+        """
+        meta_cols_to_keep = ["other_country", "other_years_of_participation"]
+        crit_cols_to_keep = [col for col in full_data.columns if col.startswith("crit_")]
+        mac_cols_to_keep = [col for col in full_data.columns if col.startswith("mac_")]
+
+        cols = meta_cols_to_keep + crit_cols_to_keep + mac_cols_to_keep
+        df_filtered = full_data[cols]
+
+        # Plot for df_filtered
+        for crit in crit_cols_to_keep:
+            self._print_sample_stats(df_filtered, crit, group_by="dataset")
+            self._print_sample_stats(df_filtered, crit, group_by="country_bucket")
+            self._print_sample_stats(df_filtered, crit, group_by="country_bucket_year")
+
+    @staticmethod
+    def _print_sample_stats(
+            df: pd.DataFrame,
+            crit_col: str,
+            group_by: str = "dataset"
+    ) -> None:
+        """
+        Computes and prints group-wise summary statistics for a criterion variable.
+
+        This method groups a given column by dataset, country, or a combination of country and year,
+        and prints the mean, standard deviation, and sample size for each group. It also computes the
+        mean and standard deviation across group means.
+
+        Args:
+            df: The input DataFrame containing the criterion variable and metadata columns.
+            crit_col: The name of the criterion column to summarize.
+            group_by: Grouping strategy; one of:
+                      - "dataset"
+                      - "country"
+                      - "country_year"
+                      - "country_bucket"
+                      - "country_bucket_year"
+        """
+        data = df[crit_col].dropna()
+        working_df = pd.DataFrame({crit_col: data})
+
+        # Prepare grouping column
+        if group_by == "dataset":
+            working_df["group"] = df.loc[data.index].index.to_series().str.extract(r'^([^_]+)')[0].str.lower()
+
+        elif group_by == "country":
+            if "other_country" not in df.columns:
+                raise ValueError("Missing column 'other_country' for grouping by country.")
+            working_df["group"] = df.loc[data.index, "other_country"].str.lower()
+
+        elif group_by == "country_year":
+            if "other_country" not in df.columns or "other_years_of_participation" not in df.columns:
+                raise ValueError("Missing metadata columns for grouping by country and year.")
+            countries = df.loc[data.index, "other_country"].str.lower()
+            years = df.loc[data.index, "other_years_of_participation"]
+
+            def norm_years(y):
+                if isinstance(y, (int, float, np.integer, np.floating)):
+                    return str(int(y))
+                if isinstance(y, (list, tuple, np.ndarray)):
+                    return "_".join(str(int(v)) for v in y)
+                return str(y)
+
+            normalized_years = years.apply(norm_years)
+            working_df["group"] = countries + "_" + normalized_years
+
+        elif group_by == "country_bucket":
+            if "other_country" not in df.columns:
+                raise ValueError("Missing column 'other_country'.")
+            countries = df.loc[data.index, "other_country"].str.lower()
+            bucketed = countries.where(countries.isin(["germany", "usa"]), "other")
+            working_df["group"] = bucketed
+
+        elif group_by == "country_bucket_year":
+            if "other_country" not in df.columns or "other_years_of_participation" not in df.columns:
+                raise ValueError("Missing metadata columns for grouping by country_bucket_year.")
+
+            countries = df.loc[data.index, "other_country"].str.lower()
+            years = df.loc[data.index, "other_years_of_participation"]
+
+            def normalize_years(val):
+                if isinstance(val, (int, float, np.integer, np.floating)):
+                    return str(int(val))
+                if isinstance(val, (list, tuple, np.ndarray)):
+                    return "_".join(str(int(v)) for v in val)
+                return str(val)
+
+            bucketed = countries.where(countries.isin(["germany", "usa"]), "other")
+            normalized_years = years.apply(normalize_years)
+            working_df["group"] = bucketed + "_" + normalized_years
+
+        else:
+            raise ValueError(f"Unknown group_by: {group_by}")
+
+        # Compute and print statistics
+        grouped = working_df.groupby("group")[crit_col]
+        print("-----")
+        print(f"Crit: {crit_col}, Groupby: {group_by}")
+        group_means = []
+
+        for group_name, values in grouped:
+            mean_val = values.mean()
+            std_val = values.std()
+            group_means.append(mean_val)
+            print(f"  {group_name}: Mean = {mean_val:.3f}, SD = {std_val:.3f}, N = {len(values)}")
+
+        # Compute mean and SD across group means
+        if group_means:
+            overall_mean = np.mean(group_means)
+            overall_sd = np.std(group_means, ddof=1)  # sample SD
+            print(f"  Across-groups: Mean of means = {overall_mean:.3f}, SD of means = {overall_sd:.3f}")
+
+    def sanity_check_pred_vs_true(self, full_data: pd.DataFrame, groupby: str = "sample") -> None:
         """
         Analyzes predicted vs. true criterion values across samples to identify unexpected predictive patterns.
 
@@ -558,7 +681,6 @@ class SanityChecker:
                 self.cfg_postprocessing["general"]["data_paths"]["pred_vs_true"],
             )
             reps_to_check = cfg_pred_vs_true["reps_to_check"]
-            stats_decimals = cfg_pred_vs_true["summary_stats"]["decimals"]
 
             for dirpath, _, filenames in os.walk(root_dir):
                 if not filenames:
@@ -590,22 +712,24 @@ class SanityChecker:
                     continue
 
                 # Process sample data
-                sample_data = {}
-                for index, pred_true_list in index_data.items():
-                    sample_name = index.split("_")[0]
-                    sample_data.setdefault(
-                        sample_name, {"pred": [], "true": [], "diff": []}
+                if groupby == "sample":
+                    pred_true_data = self._data_to_compare_datasets(index_data)
+                elif groupby == "country_year":
+                    pred_true_data = self._data_to_compare_country_years(
+                        index_data, full_data, filter_n_samples=100
                     )
-
-                    for pred, true in pred_true_list:
-                        sample_data[sample_name]["pred"].append(pred)
-                        sample_data[sample_name]["true"].append(true)
-                        sample_data[sample_name]["diff"].append(true - pred)
+                elif groupby == "country_group":  # US vs. Ger vs. Rest
+                    pred_true_data = self._data_to_compare_country_groups(
+                        index_data, full_data
+                    )
+                else:
+                    raise NotImplemented(f"grouby {groupby} not implemented. ")
 
                 # Generate parity plot
                 dir_components = os.path.normpath(dirpath).split(os.sep)
+
                 self.plotter.plot_pred_true_parity(
-                    sample_data=sample_data,
+                    sample_data=pred_true_data,
                     samples_to_include=dir_components[-3],
                     crit=dir_components[-2],
                     model=dir_components[-1],
@@ -613,32 +737,178 @@ class SanityChecker:
                     filename=cfg_pred_vs_true["plot"]["filename"],
                 )
 
-                # Compute summary statistics
-                summary_statistics = {
-                    sample_name: {
-                        "pred_mean": np.round(np.mean(values["pred"]), stats_decimals),
-                        "pred_std": np.round(np.std(values["pred"]), stats_decimals),
-                        "true_mean": np.round(np.mean(values["true"]), stats_decimals),
-                        "true_std": np.round(np.std(values["true"]), stats_decimals),
-                        "diff_mean": np.round(np.mean(values["diff"]), stats_decimals),
-                        "diff_std": np.round(np.std(values["diff"]), stats_decimals),
-                        "r2_score": np.round(
-                            r2_score(values["true"], values["pred"]), stats_decimals
-                        )
-                        if len(values["pred"]) > 1
-                        else None,
-                        "spearman_rho": np.round(
-                            spearmanr(values["true"], values["pred"])[0], stats_decimals
-                        )
-                        if len(values["pred"]) > 1
-                        else None,
-                    }
-                    for sample_name, values in sample_data.items()
-                }
-
-                # Save summary statistics
+                # Compute and save summary statistics
+                summary_statistics = self._compute_pred_true_stats(pred_true_data, stats_decimals=3)
                 if cfg_pred_vs_true["summary_stats"]["store"]:
                     output_file = os.path.join(
                         dirpath, cfg_pred_vs_true["summary_stats"]["filename"]
                     )
                     self.data_saver.save_json(summary_statistics, output_file)
+
+    @staticmethod
+    def _data_to_compare_datasets(index_data: NestedDict) -> NestedDict:
+        """
+        Organizes prediction and ground truth values by dataset for error analysis.
+
+        This method restructures a dictionary of index-based prediction–truth pairs into a
+        nested format grouped by dataset/sample name (inferred from index prefixes). For each sample,
+        it stores lists of predicted values, true values, and their differences.
+
+        Args:
+            index_data: A nested dictionary where each key is an index string (e.g., "cocoesm_123") and
+                        the value is a list of (prediction, truth) tuples.
+
+        Returns:
+            NestedDict: A nested dictionary where each top-level key is a dataset name, and each value
+                        is a dictionary with keys "pred", "true", and "diff", each mapping to a list of values.
+        """
+        sample_data = {}
+        for index, pred_true_list in index_data.items():
+            sample_name = index.split("_")[0]
+            sample_data.setdefault(
+                sample_name, {"pred": [], "true": [], "diff": []}
+            )
+
+            for pred, true in pred_true_list:
+                sample_data[sample_name]["pred"].append(pred)
+                sample_data[sample_name]["true"].append(true)
+                sample_data[sample_name]["diff"].append(true - pred)
+        return sample_data
+
+    @staticmethod
+    def _data_to_compare_country_years(
+            index_data: NestedDict,
+            full_data: pd.DataFrame,
+            filter_n_samples: int = None
+    ) -> NestedDict:
+        """
+        Prepares a Dict that contains the data for analyzing a specific country-year
+        combination, using meta columns 'other_country' and 'other_years_of_participation'.
+
+        Args:
+            index_data (NestedDict): Dict with index as key and list of (pred, true) tuples as values.
+            full_data (pd.DataFrame): DataFrame containing metadata for each index.
+            filter_n_samples (int, optional): Minimum number of samples required to keep a group.
+
+        Returns:
+            NestedDict: A dictionary with keys as 'country_year' and values containing lists
+                        of 'pred', 'true', and 'diff'.
+        """
+        country_year_data = {}
+
+        for index, pred_true_list in index_data.items():
+            row = full_data.loc[index]
+            # Combine the meta columns into a single key
+            country = row["other_country"]
+            year = row["other_years_of_participation"]
+            key = f"{country}_{year}"
+
+            country_year_data.setdefault(key, {"pred": [], "true": [], "diff": []})
+
+            for pred, true in pred_true_list:
+                country_year_data[key]["pred"].append(pred)
+                country_year_data[key]["true"].append(true)
+                country_year_data[key]["diff"].append(true - pred)
+
+        # Apply sample count filtering if specified
+        if filter_n_samples is not None:
+            country_year_data = {
+                key: data
+                for key, data in country_year_data.items()
+                if len(data["pred"]) >= filter_n_samples
+            }
+
+        return country_year_data
+
+    @staticmethod
+    def _data_to_compare_country_groups(
+            index_data: NestedDict,
+            full_data: pd.DataFrame,
+            filter_n_samples: int = None,
+            group_by_year: bool = True
+
+    ) -> NestedDict:
+        """
+        Groups prediction data by country, collapsing years and separating into
+        'Germany', 'USA', and 'Other' buckets.
+
+        Args:
+            index_data (NestedDict): Dict with index as key and list of (pred, true) tuples as values.
+            full_data (pd.DataFrame): DataFrame containing metadata for each index.
+            filter_n_samples (int, optional): Minimum number of samples required to keep a group.
+
+        Returns:
+            NestedDict: A dictionary with keys 'Germany', 'USA', and 'Other', each containing lists
+                        of 'pred', 'true', and 'diff'.
+        """
+        grouped_data = {}
+
+        for index, pred_true_list in index_data.items():
+            row = full_data.loc[index]
+            country = row["other_country"]
+            year = row["other_years_of_participation"]
+
+            if country in ("germany", "usa"):
+                group_key = f"{country}_{year}" if group_by_year else country
+            else:
+                group_key = "other"
+
+            if group_key not in grouped_data:
+                grouped_data[group_key] = {"pred": [], "true": [], "diff": []}
+
+            for pred, true in pred_true_list:
+                grouped_data[group_key]["pred"].append(pred)
+                grouped_data[group_key]["true"].append(true)
+                grouped_data[group_key]["diff"].append(true - pred)
+
+        # Apply sample count filtering if specified
+        if filter_n_samples is not None:
+            grouped_data = {
+                key: data
+                for key, data in grouped_data.items()
+                if len(data["pred"]) >= filter_n_samples
+            }
+
+        return grouped_data
+
+    @staticmethod
+    def _compute_pred_true_stats(pred_true_data: NestedDict, stats_decimals: int = 3) -> NestedDict:
+        """
+        Computes descriptive and evaluation metrics for predicted vs. true values by dataset.
+
+        For each sample in the input dictionary, this method calculates:
+        - Mean and standard deviation of predicted values
+        - Mean and standard deviation of true values
+        - Mean and standard deviation of prediction errors (true - pred)
+        - R² score (coefficient of determination)
+        - Spearman rank correlation
+
+        Args:
+            pred_true_data: A nested dictionary with keys "pred", "true", and "diff" for each dataset.
+            stats_decimals: Number of decimal places to round summary statistics.
+
+        Returns:
+            dict[str, dict[str, float | None]]: Dictionary of sample-level summary statistics.
+        """
+        summary_statistics = {
+            sample_name: {
+                "pred_mean": np.round(np.mean(values["pred"]), stats_decimals),
+                "pred_std": np.round(np.std(values["pred"]), stats_decimals),
+                "true_mean": np.round(np.mean(values["true"]), stats_decimals),
+                "true_std": np.round(np.std(values["true"]), stats_decimals),
+                "diff_mean": np.round(np.mean(values["diff"]), stats_decimals),
+                "diff_std": np.round(np.std(values["diff"]), stats_decimals),
+                "r2_score": np.round(
+                    r2_score(values["true"], values["pred"]), stats_decimals
+                )
+                if len(values["pred"]) > 1
+                else None,
+                "spearman_rho": np.round(
+                    spearmanr(values["true"], values["pred"])[0], stats_decimals
+                )
+                if len(values["pred"]) > 1
+                else None,
+            }
+            for sample_name, values in pred_true_data.items()
+        }
+        return summary_statistics
