@@ -1,10 +1,10 @@
 # This configuration file enables the configuration of certain parameters for the postprocessing of the results.
 # All final results where generated with the current configuration.
 
-execute_postprocessing: true
+execute_postprocessing: false
 
 methods_to_apply:
-  #- condense_cv_results
+  - condense_cv_results
   #- prediction_sanity_checks
   #- create_descriptives
   #- conduct_significance_tests
@@ -14,7 +14,8 @@ methods_to_apply:
   #- create_lin_model_coefs_supp
   #- create_shap_values_supp  # this may take a while
   #- create_shap_ia_values_supp
-  - test_measurement_invariance
+  #- test_measurement_invariance
+  #- analyze_samples_missings
 
 general:
   feature_combinations:
@@ -31,7 +32,7 @@ general:
         pl_srmc_mac: "Person-lv + Situation-lv (ESM) + Country-lv"
         all_in: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv"
 
-      supp: # As currently implemented, do only include 1x Supp analysis and comment the other out
+      supp: # As currently implemented, do only include 1x Supp analysis and comment the other out, not ideal but ok
 
         # Without neuroticism facets and self-esteem
         # pl_nnse: "Person-lv without neuroticism facets and self-esteem"
@@ -43,16 +44,19 @@ general:
         # all_in_nnse: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv without neuroticism facets and self-esteem"
 
         # Without personality
-        pl_npers: "Personal without personality variables"
-        pl_srmc_npers: "Personal + Situational (ESM) without personality variables"
-        pl_sens_npers: "Personal + Situational (Sensing) without personality variables"
-        pl_srmc_sens_npers: "Personal + Situational (ESM) + Situational (Sensing) without personality variables"
-        pl_mac_npers: "Personal + Societal without personality variables"
-        pl_srmc_mac_npers: "Personal + Situational (ESM) + Societal without personality variables"
-        all_in_npers: "Personal + Situational (ESM) + Situational (Sensing) + Societal without personality variables"
+        pl_npers: "Person-lv"
+        srmc: "Situation-lv (ESM)"
+        sens: "Situation-lv (Sensing)"
+        mac: "Country-lv"
+        pl_srmc_npers: "Person-lv + Situation-lv (ESM)"
+        pl_sens_npers: "Person-lv + Situation-lv (Sensing)"
+        pl_srmc_sens_npers: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing)"
+        pl_mac_npers: "Person-lv + Country-lv"
+        pl_srmc_mac_npers: "Person-lv + Situation-lv (ESM) + Country-lv"
+        all_in_npers: "Person-lv + Situation-lv (ESM) + Situation-lv (Sensing) + Country-lv"
 
       ia_values:
-        srmc_ia_values: "Situational (ESM): Interaction Values"
+        srmc_ia_values: "Situation-lv (ESM): Interaction Values"
 
   samples_to_include:
     name_mapping:
@@ -91,7 +95,7 @@ general:
 
   data_paths:
     base_path: "../results/"
-    main_results: cluster_results  # cluster_resultsThis should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
+    main_results: cluster_results  # cluster_results This should correspond to the base output path from cfg_analysis.yaml or the path defined in the SLURM script
     ia_values: ia_values_0912
     sig_tests: sig_tests_1312
     pred_vs_true: mac_pred_true
@@ -246,9 +250,12 @@ conduct_significance_tests:
   t_strng: t
   p_strng: p
   p_fdr_strng: "p (FDR-corrected)"
+  d_strng: d
+  d_lower_strng: "95% CI lower bound"
+  d_higher_strng: "95% CI higher bound"
 
   compare_models:
-    store: true
+    store: true # true
     filename_compare_models_main: "sig_tests_compare_models_main.xlsx"
     filename_compare_models_control: "sig_tests_compare_models_control.xlsx"
     stat_order:
@@ -258,9 +265,12 @@ conduct_significance_tests:
       - t
       - p
       - "p (FDR-corrected)"
+      - d
+      - "95% CI lower bound"
+      - "95% CI higher bound"
 
   compare_predictor_classes:
-    store: true
+    store: true # true
     filename_compare_predictor_classes: "sig_tests_compare_predictor_classes.xlsx"
     ref_predictor_class: "pl"
     stat_order:
@@ -270,6 +280,9 @@ conduct_significance_tests:
       - t
       - p
       - "p (FDR-corrected)"
+      - d
+      - "95% CI lower bound"
+      - "95% CI higher bound"
     feature_combinations_included:
       - pl
       - pl_srmc
@@ -291,7 +304,7 @@ create_cv_results_plots:
   store_params:
     store: true
     dpi: 450
-    format: pdf  # png, pdf
+    format: png  # png, pdf
     name: cv_results
 
   titles:
@@ -299,10 +312,14 @@ create_cv_results_plots:
     - "b) Two-level predictions"
     - "c) Three-level predictions"
 
-  col_assignment:
-    first_col: [pl, srmc, sens, mac]
-    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
-    third_col: [pl_srmc_mac, all_in]
+  col_assignment:  # This is only for main, need to be adjusted for supp
+    first_col: [ pl, srmc, sens, mac ]
+    second_col: [ pl_srmc, pl_sens, pl_srmc_sens, pl_mac ]
+    third_col: [ pl_srmc_mac, all_in ]
+
+    #first_col: [pl_npers, srmc, sens, mac]
+    #second_col: [pl_srmc_npers, pl_sens_npers, pl_srmc_sens_npers, pl_mac_npers]
+    #third_col: [pl_srmc_mac_npers, all_in_npers]
 
   figure_params:
     num_rows: 4
@@ -363,8 +380,8 @@ create_cv_results_plots:
       rfr_label: "RFR (Lower Bar)"
     feature_combo_legend:
       add: true
-      ref_label: "Personal Predictors"
-      other_label: "Situational/Societal Predictors"
+      ref_label: "Person-lv predictors"
+      other_label: "Situation-lv/Country-lv predictors"
     legend_loc: "lower right"
     legend_pos: [ 0.955, 0.18 ]
     ncol: 1
@@ -400,21 +417,25 @@ create_cv_results_plots:
 
 create_shap_plots:
   analysis: main   # main, supp
-  models: [ randomforestregressor ]  # must be iterable
-  crits: [ wb_state ]  # must be iterable
-  samples_to_include: [ selected]  # must be iterable
+  models: [ randomforestregressor, elasticnet]  # must be iterable
+  crits: [ wb_state, wb_trait ]  # must be iterable
+  samples_to_include: [ selected, all ]   # must be iterable
   num_to_display: 6
 
   store_params:
     store: true
     dpi: 450
-    format: pdf # pdf, png
+    format: png # pdf, png
     name: beeswarm
 
-  col_assignment:
-    first_col: [pl, srmc, sens, mac]  # pl_npers # [pl, srmc, sens, mac]
-    second_col: [pl_srmc, pl_sens, pl_srmc_sens, pl_mac] # pl_srcm_npers, pl_sens_npers, pl_srmc_sens_npers, pl_mac_npers # [pl_srmc, pl_sens, pl_srmc_sens, pl_mac]
-    third_col: [pl_srmc_mac, all_in] # pl_srmc_mac_npers, all_in_npers # [pl_srmc_mac, all_in]
+  col_assignment:  # This is only for main, need to be adjusted for supp
+    first_col: [ pl, srmc, sens, mac ]
+    second_col: [ pl_srmc, pl_sens, pl_srmc_sens, pl_mac ]
+    third_col: [ pl_srmc_mac, all_in ]
+
+    #first_col: [pl_npers, srmc, sens, mac]
+    #second_col: [pl_srmc_npers, pl_sens_npers, pl_srmc_sens_npers, pl_mac_npers]
+    #third_col: [pl_srmc_mac_npers, all_in_npers]
 
   figure_params:
     num_rows: 4
