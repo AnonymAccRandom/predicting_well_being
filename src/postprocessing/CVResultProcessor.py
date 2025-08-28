@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -231,7 +232,7 @@ class CVResultProcessor:
         model: str,
         feature_combos_to_compare: tuple[str, str],
         decimals: int = 3,
-    ) -> float:
+    ) -> Union[float, None]:
         """
         Computes the percentage increase in performance between two feature combinations.
 
@@ -258,6 +259,9 @@ class CVResultProcessor:
             ratio = max_val / min_val
 
             return np.round(ratio, decimals)
+
+        else:
+            return None
 
     def create_cv_results_table(
         self,
@@ -330,17 +334,6 @@ class CVResultProcessor:
         # Custom order for metrics
         metric_order = list(self.metric_name_mapping.values())
         n_metrics = len(metric_order)
-        #df_pivot.columns = pd.MultiIndex.from_tuples(
-        #    sorted(
-        #        df_pivot.columns,
-        #        key=lambda col: (
-        #            col[0],
-        #            metric_order.index(col[1])
-        #            if col[1] in metric_order
-        #            else len(metric_order),
-        #        ),
-        #    )
-        #)
 
         if include_empty_col_between_models:
             empty_col = pd.Series([np.nan] * len(df_pivot), name=(" ", " "))
@@ -351,6 +344,7 @@ class CVResultProcessor:
 
         custom_order = [feature_combo_mapping[k] for k in feature_combo_mapping]
         df_pivot = df_pivot.reindex(custom_order, fill_value="N/A")
+        df_pivot = df_pivot.reindex(columns=["ENR", "RFR"], level=0)
 
         if self.result_table_cfg["store"]:
             output_path = os.path.join(

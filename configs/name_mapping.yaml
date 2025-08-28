@@ -383,12 +383,12 @@ sens:
   time_bicycle_max: "Max daily time spent on bicycle"
 
 crit:
-  wb_state: "State well-being"
-  pa_state: "State positive affect"
-  na_state: "State negative affect"
-  wb_trait: "Trait well-being"
-  pa_trait: "Trait positive affect"
-  na_trait: "Trait negative affect"
+  wb_state: "Experienced well-being"
+  pa_state: "Experienced positive affect"
+  na_state: "Experienced negative affect"
+  wb_trait: "Remembered well-being"
+  pa_trait: "Remembered positive affect"
+  na_trait: "Remembered negative affect"
 
   # cocoesm / cocoms
   state_pa1: "Happy"

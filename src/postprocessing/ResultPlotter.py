@@ -549,6 +549,17 @@ class ResultPlotter:
                 edgecolor=None,
                 alpha=alpha,
             )
+            self._annotate_model_label(
+                ax=ax,
+                y_pos=y_position_to_plot,
+                bar_len=value,
+                bar_width=bar_width,
+                fontweight="bold",
+                model=model,
+                model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
+                fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
+                x_offset_frac=0.05,  # tweak if you want a tad more / less padding
+            )
 
         self.format_bar_plot(
             ax=ax,
@@ -645,6 +656,18 @@ class ResultPlotter:
                     capsize=self.cfg_cv_results_plot["figure_params"]["bar_capsize"],
                 )
 
+                self._annotate_model_label(
+                    ax=ax,
+                    y_pos=y_position_to_plot,
+                    bar_len=base_value,
+                    bar_width=bar_width,
+                    fontweight="bold",
+                    model=model,
+                    model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
+                    fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
+                    x_offset_frac=0.05,  # tweak if you want a tad more / less padding
+                )
+
             else:
                 # If there is no incremental performance, only plot the bar for the ref
                 real_value = base_value + increment
@@ -660,6 +683,18 @@ class ResultPlotter:
                     capsize=self.cfg_cv_results_plot["figure_params"]["bar_capsize"],
                 )
 
+                self._annotate_model_label(
+                    ax=ax,
+                    y_pos=y_position_to_plot,
+                    bar_len=base_value,
+                    bar_width=bar_width,
+                    fontweight="bold",
+                    model=model,
+                    model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
+                    fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
+                    x_offset_frac=0.05,  # tweak if you want a tad more / less padding
+                )
+
             self.format_bar_plot(
                 ax=ax,
                 row_idx=row_idx,
@@ -671,6 +706,70 @@ class ResultPlotter:
                 fontsizes=fontsizes,
                 rel=rel,
             )
+
+    @staticmethod
+    def _annotate_model_label(
+            ax: Axes,
+            *,
+            y_pos: float,
+            bar_len: float,
+            bar_width: float,
+            fontweight: str = "normal",
+            model: str,
+            model_label_map: dict[str, str],
+            fontsizes: dict[str, int],
+            x_offset_frac: float = 0.01,
+            extra_text_kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Adds a model label to the left edge of a horizontal bar in a bar plot.
+
+        The method determines whether the bar is positive or negative and places the label accordingly,
+        offset slightly from the y-axis using a fraction of the axis range. The label text is retrieved
+        from a mapping dictionary and styled with optional parameters.
+
+        Args:
+            ax: The matplotlib Axes object where the text will be added.
+            y_pos: Vertical position for label placement (center of the bar).
+            bar_len: Length of the bar to determine alignment direction.
+            bar_width: Width of the bar (not used directly).
+            fontweight: Font weight for the label (e.g., "normal", "bold").
+            model: Model key to annotate (used for label lookup).
+            model_label_map: Mapping from model keys to human-readable labels.
+            fontsizes: Dictionary containing font sizes (expects key "bar_label").
+            x_offset_frac: Horizontal offset from axis, as a fraction of the x-axis range.
+            extra_text_kwargs: Additional keyword arguments passed to `ax.text`.
+
+        Returns:
+            None
+        """
+        if extra_text_kwargs is None:
+            extra_text_kwargs = {}
+
+        # Left padding in data units
+        x_span = ax.get_xlim()[1] - ax.get_xlim()[0]
+        x_offset = x_offset_frac * x_span
+
+        # Text just right of the y-axis (or just left for negative bars)
+        if bar_len >= 0:
+            x_text = ax.get_xlim()[0] + x_offset
+            ha = "left"
+        else:
+            x_text = ax.get_xlim()[0] - x_offset
+            ha = "right"
+
+        ax.text(
+            x_text,
+            y_pos,
+            model_label_map.get(model, model),
+            va="center",
+            ha=ha,
+            fontsize=fontsizes.get("bar_label", 12),  # bump default up a bit
+            fontweight=fontweight,
+            color="black",
+            clip_on=False,  # avoid being clipped by axes limits
+            **extra_text_kwargs,
+        )
 
     def format_bar_plot(
         self,
@@ -1347,6 +1446,7 @@ class ResultPlotter:
         model: str,
         store_plot: bool,
         filename: Optional[str] = None,
+        group_by: str = "sample"
     ) -> None:
         """
         Creates a parity plot of predicted vs. true values for all samples.
@@ -1361,6 +1461,7 @@ class ResultPlotter:
             model: Model used for predictions (e.g., "randomforestregressor").
             store_plot: Whether to save the plot to a file.
             filename: Filename for saving the plot, if `store_plot` is True. Defaults to None.
+            group_by: Aggregation level the predictions are grouped by (e.g., dataset of country)
         """
         colors_raw = self.cfg_postprocessing["general"]["global_plot_params"][
             "custom_cmap_colors"
@@ -1376,11 +1477,21 @@ class ResultPlotter:
         num_samples = len(samples)
         colors = [colors_raw[i % len(colors_raw)] for i in range(num_samples)]
 
-        for i, sample_name in enumerate(samples):
-            color = colors[i % 10]
-            pred_values = sample_data[sample_name]["pred"]
-            true_values = sample_data[sample_name]["true"]
-            ax.scatter(true_values, pred_values, color=color, label=sample_name)
+        if group_by == "country_year":
+            for i, sample_name in enumerate(samples):
+                pred_values = sample_data[sample_name]["pred"]
+                true_values = sample_data[sample_name]["true"]
+                ax.scatter(true_values, pred_values,
+                           #color=color,
+                           label=sample_name)
+
+        if group_by == "sample":
+            for i, sample_name in enumerate(samples):
+                pred_values = sample_data[sample_name]["pred"]
+                true_values = sample_data[sample_name]["true"]
+                ax.scatter(true_values, pred_values,
+                           #color=color,
+                           label=sample_name)
 
         min_val = min(
             [min(sample_data[s]["true"] + sample_data[s]["pred"]) for s in samples]

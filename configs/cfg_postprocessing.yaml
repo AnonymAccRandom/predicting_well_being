@@ -133,6 +133,7 @@ condense_cv_results:
     filename: "main_nnse_diffs.json"
 
   perf_increase:
+    calculate: false
     crits: [ wb_state, wb_trait ]
     samples_to_include: [ all, selected ]
     metrics: [ r2 ]
