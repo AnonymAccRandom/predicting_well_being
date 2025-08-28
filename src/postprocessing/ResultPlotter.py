@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Callable, Union, Collection, Optional, Any
 
@@ -208,7 +209,70 @@ class ResultPlotter:
         return filtered_metrics_cols
 
     @staticmethod
+    def get_individual_performances(
+            feature_combos: list[str],
+            samples_to_include: str,
+            crit: str,
+            base_dir: str = "../results/sig_tests_1312",
+    ) -> NestedDict:
+        """
+        Loads individual Pearson values from CV result JSON files across multiple models and feature combinations.
+
+        This function:
+        - Iterates over specified feature combinations.
+        - For each feature combo, loads JSON files from both model subdirectories (elasticnet and randomforestregressor).
+        - Extracts all Pearson correlation values from each file and aggregates them by model.
+
+        Args:
+            feature_combos: List of feature combination names to process.
+            samples_to_include: The sample type used in the directory path (e.g., "all", "selected").
+            crit: The criterion used in the directory path (e.g., "wb_state").
+            base_dir: Root directory where the model folders are located.
+
+        Returns:
+            dict[str, dict[str, list[float]]]: Nested dictionary with structure:
+                {
+                    "<feature_combo>": {
+                        "elasticnet": [...pearson values...],
+                        "randomforestregressor": [...pearson values...]
+                    },
+                    ...
+                }
+        """
+        result = {}
+
+        for feature_combo in feature_combos:
+            result[feature_combo] = {}
+            for model in ["elasticnet", "randomforestregressor"]:
+                model_path = os.path.join(base_dir, feature_combo, samples_to_include, crit, model)
+                if not os.path.exists(model_path):
+                    continue
+
+                pearson_values_all = []
+
+                for filename in os.listdir(model_path):
+                    if not filename.startswith("cv_results_rep_") or not filename.endswith(".json"):
+                        continue
+
+                    file_path = os.path.join(model_path, filename)
+                    with open(file_path, "r") as f:
+                        data = json.load(f)
+
+                    pearson_values_imp = [
+                        imp_vals["pearson"]
+                        for fold_vals in data.values()
+                        for imp_vals in fold_vals.values()
+                        if "pearson" in imp_vals
+                    ]
+
+                    pearson_values_all.extend(pearson_values_imp)
+
+                result[feature_combo][model] = pearson_values_all
+
+        return result
+
     def filter_cv_results_data(
+        self,
         cv_results_dct: NestedDict, crit: str, metric: str, samples_to_include: str
     ) -> NestedDict:
         """
@@ -246,7 +310,26 @@ class ResultPlotter:
             for feature_comb, models_metrics in samples_results.items()
         }
 
-        return filtered_results
+        individual_results = self.get_individual_performances(
+            feature_combos = list(filtered_results.keys()),
+            samples_to_include = samples_to_include,
+            crit = crit,
+        )
+
+        merged_results = {
+            feature: {
+                model: {
+                    **filtered_results[feature][model],
+                    "vals": individual_results[feature][model]
+                }
+                for model in filtered_results.get(feature, {})
+                if model in individual_results.get(feature, {})
+            }
+            for feature in filtered_results
+            if feature in individual_results
+        }
+
+        return merged_results
 
     def plot_cv_results_plots(
         self,
@@ -502,6 +585,7 @@ class ResultPlotter:
         row_idx: int,
         ref_feature_combo: str = "pl",
         rel: float = None,
+        add_individual_data_points: bool = False,
     ) -> None:
         """
         Creates a horizontal bar plot with error bars for a given feature group and its associated models.
@@ -524,6 +608,7 @@ class ResultPlotter:
             row_idx: The index of the row in the subplot grid, used for formatting purposes.
             ref_feature_combo: The reference feature combination key for determining the bar color (default: "pl").
             rel: Optional reliability threshold to be shown as a vertical line. If `None`, no line is added.
+            add_individual_data_points: If individual data points should be added in the plot as a scatter plot.
         """
         for i, model in enumerate(models):
             if feature_combo == ref_feature_combo:
@@ -549,11 +634,23 @@ class ResultPlotter:
                 edgecolor=None,
                 alpha=alpha,
             )
+
+            if add_individual_data_points:  # not used ATM
+                self._plot_violin_points_vertical(
+                    ax=ax,
+                    values=data[model_key]["vals"],
+                    y_center=y_position_to_plot,
+                    bar_width=bar_width,
+                    color="black",
+                    alpha=0.15,
+                    size=6,
+                    max_width_frac=0.4,  # smaller = closer to the error bar
+                )
+
             self._annotate_model_label(
                 ax=ax,
                 y_pos=y_position_to_plot,
                 bar_len=value,
-                bar_width=bar_width,
                 fontweight="bold",
                 model=model,
                 model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
@@ -660,7 +757,6 @@ class ResultPlotter:
                     ax=ax,
                     y_pos=y_position_to_plot,
                     bar_len=base_value,
-                    bar_width=bar_width,
                     fontweight="bold",
                     model=model,
                     model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
@@ -687,7 +783,6 @@ class ResultPlotter:
                     ax=ax,
                     y_pos=y_position_to_plot,
                     bar_len=base_value,
-                    bar_width=bar_width,
                     fontweight="bold",
                     model=model,
                     model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
@@ -708,12 +803,68 @@ class ResultPlotter:
             )
 
     @staticmethod
+    def _plot_violin_points_vertical(
+            ax: Axes,
+            values: list[float],
+            y_center: float,
+            bar_width: float,
+            color: str = "black",
+            alpha: float = 0.25,
+            size: float = 8,
+            max_width_frac: float = 0.18,
+            bw: float | None = None,
+    ) -> None:
+        """
+        Draws a violin-shaped cloud of points around a horizontal bar by compressing only vertically.
+
+        This method:
+        - Keeps x-positions equal to the given values (no horizontal compression).
+        - Estimates a 1D KDE over x to get local density per point.
+        - Sets each point's vertical half-width as `bar_width * max_width_frac * normalized_density`.
+        - Jitters y uniformly within that half-width around `y_center`, yielding a violin envelope that stays
+          close to the error bar.
+
+        Args:
+            ax: The Matplotlib Axes to plot on.
+            values: The individual metric values (x-axis positions).
+            y_center: Vertical center of the corresponding bar.
+            bar_width: Height of the bar for scaling the violin thickness.
+            color: Point color.
+            alpha: Point transparency.
+            size: Marker size.
+            max_width_frac: Maximum vertical half-width as a fraction of `bar_width`.
+            bw: Optional KDE bandwidth override; if None, uses a rule-of-thumb.
+        """
+        x = np.asarray(values, float)
+
+        if x.size == 0:
+            return
+
+        if x.size == 1:
+            ax.scatter(x, np.full(1, y_center), c=color, s=size, alpha=alpha, linewidths=0, zorder=4)
+            return
+
+        std = float(np.std(x))
+        n = x.size
+        if bw is None or not np.isfinite(bw) or bw <= 0:
+            bw = 1.06 * std * (n ** (-1 / 5)) if std > 0 else 1e-3
+
+        diffs = (x[:, None] - x[None, :]) / bw
+        dens = np.exp(-0.5 * diffs ** 2).sum(axis=1) / (np.sqrt(2 * np.pi) * bw * n)
+        dmax = dens.max() if np.isfinite(dens).all() and dens.max() > 0 else 1.0
+        dens = dens / dmax
+
+        half_width = (bar_width * max_width_frac) * dens
+        y = y_center + (np.random.rand(n) * 2 - 1) * half_width
+
+        ax.scatter(x, y, c=color, s=size, alpha=alpha, linewidths=0, zorder=4)
+
+    @staticmethod
     def _annotate_model_label(
             ax: Axes,
             *,
             y_pos: float,
             bar_len: float,
-            bar_width: float,
             fontweight: str = "normal",
             model: str,
             model_label_map: dict[str, str],
@@ -732,16 +883,12 @@ class ResultPlotter:
             ax: The matplotlib Axes object where the text will be added.
             y_pos: Vertical position for label placement (center of the bar).
             bar_len: Length of the bar to determine alignment direction.
-            bar_width: Width of the bar (not used directly).
             fontweight: Font weight for the label (e.g., "normal", "bold").
             model: Model key to annotate (used for label lookup).
             model_label_map: Mapping from model keys to human-readable labels.
             fontsizes: Dictionary containing font sizes (expects key "bar_label").
             x_offset_frac: Horizontal offset from axis, as a fraction of the x-axis range.
             extra_text_kwargs: Additional keyword arguments passed to `ax.text`.
-
-        Returns:
-            None
         """
         if extra_text_kwargs is None:
             extra_text_kwargs = {}
@@ -1463,9 +1610,6 @@ class ResultPlotter:
             filename: Filename for saving the plot, if `store_plot` is True. Defaults to None.
             group_by: Aggregation level the predictions are grouped by (e.g., dataset of country)
         """
-        colors_raw = self.cfg_postprocessing["general"]["global_plot_params"][
-            "custom_cmap_colors"
-        ]
         cfg_pred_true_plot = self.cfg_postprocessing["sanity_check_pred_vs_true"][
             "plot"
         ]
@@ -1474,8 +1618,6 @@ class ResultPlotter:
         height = cfg_pred_true_plot["figure"]["height"]
         fig, ax = plt.subplots(figsize=(width, height))
         samples = list(sample_data.keys())
-        num_samples = len(samples)
-        colors = [colors_raw[i % len(colors_raw)] for i in range(num_samples)]
 
         if group_by == "country_year":
             for i, sample_name in enumerate(samples):
@@ -1703,6 +1845,7 @@ class ResultPlotter:
             crit: Criterion used for generating the plot.
             model: Name of the model associated with the plot.
             feature_combination: The feature configuration used in the plot.
+            mapping_str: Further identifier, optional.
 
         Returns:
             str: The normalized file path where the plot should be stored.
