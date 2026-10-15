@@ -3,6 +3,11 @@
 
 This repository contains the complete analysis code. 
 
+- Code (this repository, archived release): [CODE DOI: Zenodo, to be added]
+- Processed data (N = 10,015) and codebooks: [DATA DOI: to be added]
+- Code for extracting the sensing features: [DOI: to be added]
+- Result files of the cross-validation (input for all figures and tables): [DOI: to be added]
+
 
 ## Table of Contents
 
@@ -12,6 +17,7 @@ This repository contains the complete analysis code.
    - [Get the Data](#get-the-data)
    - [Installing Python](#installing-python)
    - [Installing Requirements](#installing-requirements)
+   - [Software Versions](#software-versions)
 3. [Usage](#usage)
    - [Main Function](#main-function)
    - [Preprocessing Config](#preprocessing-config)
@@ -22,6 +28,8 @@ This repository contains the complete analysis code.
    - [Speed up Computations](#speed-up-computations)
    - [Troubleshooting](#troubleshooting)
 4. [Reproducing Results](#reproducing-results)
+   - [Reproducing Figures and Tables Without Rerunning the Analysis](#reproducing-figures-and-tables-without-rerunning-the-analysis)
+   - [Rerunning the Full Pipeline](#general-description)
 5. [Project Structure](#project-structure)
 6. [License](#license)
 
@@ -46,14 +54,14 @@ To begin working with the project, you first need to copy it to your local machi
 If you are comfortable with the command line, you can use the following commands:
 
 ```bash
-git clone https://github.com/AnonymAccRandom/predicting_well_being.git
+git clone https://github.com/OleHaetscher/predicting_well_being.git
 cd predicting_well_being
 ```
 
 #### Cloning via GitHub Website
 
 1. **Navigate to the Repository**:
-   - Open your web browser and go to the repository's page on GitHub. Use the URL: (https://github.com/AnonymAccRandom/predicting_well_being/)
+   - Open your web browser and go to the repository's page on GitHub. Use the URL: (https://github.com/OleHaetscher/predicting_well_being/)
 
 2. **Clone the Repository**:
    - Above the file list, click the green button labeled **Code**.
@@ -70,7 +78,7 @@ This method does not require any special software and is perfect for those unfam
 ### Get the Data
 
 1. **Download the data**:
-   - Navigate to the OSF project that contains the data by clicking on the link provided in the manuscript. Download the zip file **data**.  
+   - Download the zip file **data** from the data deposit ([DATA DOI: to be added]).  
 
 2. **Unzip the data**:
    - Unzip the **data** file without changing its structure. (e.g., unpacking the folder to the **downloads** directory) 
@@ -135,6 +143,18 @@ To ensure your setup is correctly configured to run the code, follow these steps
 
 Following these steps will prepare your environment for running the project without any issues related to dependencies.
 
+### Software Versions
+
+- Python 3.11.5
+- All Python packages with their exact versions are pinned in `requirements.txt`. The main ones are
+  numpy 2.0.1, pandas 2.2.2, scikit-learn 1.5.1, shap 0.46.0, shapiq 1.0.1, statsmodels 0.14.2,
+  matplotlib 3.9.2, and rpy2 3.6.1.
+- R 4.4.3 with the packages lavaan 0.6-19 and semTools 0.5-7, used via rpy2 for the
+  measurement invariance tests only (`src/postprocessing/InvarianceTester.py`). Importing this module tries to
+  install lavaan.mi and semTools.mi from CRAN. The installed package versions were not recorded; 0.6-19 and 0.5-7
+  are the versions available on CRAN when the measurement invariance tests were run (July and August 2025).
+- The cross-validation was run on a SLURM cluster (`src/ss_cluster1.sh`, `src/ss_cluster2.sh`).
+
 ---
 
 ## Usage
@@ -150,7 +170,16 @@ This repository contains several scripts to perform a sequence of analyses. Main
 The `main.py` script is the primary entry point to run all analyses in this repository.
 Tu run the main function, do the following 
 - In Editor (e.g., Pycharm): Set up a Run Configuration with the virtual environment and the main script of this project and run main. 
-- In Terminal (e.g., Bash, Powershell): Just run the script using `python src/main.py`
+- In Terminal: run the script from the `src/` folder, with the repository root on the Python path (the configs
+  are read relative to `src/`, and the modules are imported as `src.…`):
+  ```bash
+  cd src
+  PYTHONPATH=.. python main.py        # Bash (macOS, Linux)
+  ```
+  ```powershell
+  cd src
+  $env:PYTHONPATH=".."; python main.py  # PowerShell (Windows)
+  ```
 
 
 ### Preprocessing Config 
@@ -186,7 +215,7 @@ These defining parameters can be adjusted in lines 7-10 in `cfg_analysis.yaml` t
 - **Situation-Level (ESM)** [`srmc`]
 - **Situation-Level (Sensing)** [`sens`]
 - **Country-Level** [`mac`]
-- **Combined feature combinations** (e.g., [`pl_srmc`]) are listed in lines 39-57 of the configuration file.
+- **Combined feature combinations** (e.g., [`pl_srmc`]) are listed under `feature_sample_combinations` in the configuration file.
 
 #### Possible Prediction Models:
 - **Elastic Net Regression** [`elasticnet`]
@@ -213,9 +242,9 @@ The `cfg_postprocessing.yaml` file is the user interface for postprocessing the 
 - **Creating tables and plots**
 - **Conducting significance tests**
 
-Results generated during postprocessing are stored in the `results/` folder and its subfolders that can be defined in lines 80-85 of `cfg_postprocessing.yaml`.
+Results generated during postprocessing are stored in the `results/` folder and its subfolders that can be defined under `general: data_paths` in `cfg_postprocessing.yaml`.
 
-To conduct postprocessing, adjust the `methods_to_apply` section (lines 7-16) in the `cfg_postprocessing.yaml` file to specify which postprocessing steps to execute.
+To conduct postprocessing, adjust the `methods_to_apply` section at the top of the `cfg_postprocessing.yaml` file to specify which postprocessing steps to execute.
 
 ### Recommended Execution Workflow
 
@@ -228,7 +257,7 @@ To conduct postprocessing, adjust the `methods_to_apply` section (lines 7-16) in
 As we have described in the paper, we did only compute the SHAP interaction values for specific analysis settings. 
 With the following description, SHAP interaction values for every analysis setting can be computed. 
 
-Modify the following line in the `cfg_analysis.yaml` to set up the main analysis parameters (line 139, set this to "true"). This is only implemented for the RFR. 
+Modify the following line in the `cfg_analysis.yaml` to set up the main analysis parameters (under `shap_ia_values`, set this to "true"). This is only implemented for the RFR. 
 - `comp_shap_ia_values: true`
 
 Do the computations as described in the next section. If `comp_shap_ia_values: true`, the SHAP interaction values will be computed and stored during the machine-learning-based analysis. This may be very time-consuming. 
@@ -236,7 +265,7 @@ Do the computations as described in the next section. If `comp_shap_ia_values: t
 ### Speed up Computations
 
 To speed up the computations, the machine learning-based analysis can be parallelized (on a local computer). As a default, the analysis is not parallelized.
-Therefore, lines 702-713 in `cfg_analysis.yaml` need to be adjusted to parallelize the computations. 
+Therefore, the `parallelize` block in `cfg_analysis.yaml` needs to be adjusted to parallelize the computations. 
 I recommend these settings for local parallelization where the specific number depends on the cores available at the local device. 
 All parallelized operations specified are sequential (first datasets are imputed, then inner_cv is conducted, etc.).
 
@@ -262,6 +291,49 @@ If main.py is not running as expected, consider the following steps
 
 ## Reproducing Results 
 
+### Reproducing Figures and Tables Without Rerunning the Analysis
+
+The figures and tables can be regenerated from the stored result files, without the participant data and
+without rerunning the cross-validation.
+
+1. Download the result files ([DOI: to be added]) and place the folder **results** directly within the main
+   repository directory (next to `configs/` and `src/`).
+2. In `cfg_postprocessing.yaml`, set the postprocessing methods to apply in `methods_to_apply` and run
+   `main.py` with `execute_postprocessing: true` (see [Main Function](#main-function) and Step 4 of the
+   Walk-Through below). These methods only use the result files:
+
+| Display item | Method in `methods_to_apply` | Output |
+|---|---|---|
+| Figure 2 | `create_cv_results_plots` | `results/plots/combo/wb_state/` |
+| Figure 3, Supplementary Figures S1 to S15 | `create_shap_plots` | `results/plots/<samples>/<crit>/<model>/` |
+| Performance tables | `condense_cv_results` | `results/final_results/cv_results_*.xlsx` |
+| Tables of significance tests | `conduct_significance_tests` | `results/sig_tests_1312/` |
+| Correspondence of SHAP values | `shap_sanity_checks` | `results/shap_summary_tables/` |
+
+   The regression tables (`calculate_exp_lin_models`), the descriptive statistics (`create_descriptives`), and
+   the measurement invariance tests (`test_measurement_invariance`) need the preprocessed data (see
+   [Get the Data](#get-the-data)).
+3. The Source Data file of the article is created with `create_source_data.py`, run like `main.py` (from `src/`:
+   `PYTHONPATH=.. python create_source_data.py`). It reads only the
+   result files and writes one Excel file per display item, a README that maps each display item to its file,
+   and a zipped folder to `results/source_data/`. The SHAP values contain one row per participant and are
+   summarized per predictor in the Source Data. The display items, their result files, and the output folder
+   are set in the block `create_source_data` of `cfg_postprocessing.yaml`.
+4. The Supplementary Data files are created with `create_supplementary_data.py`, run like `main.py` (from
+   `src/`: `PYTHONPATH=.. python create_supplementary_data.py <path to the Supplementary Information docx>`).
+   They hold the
+   Supplementary Tables that extended over more than one page in the revised submission (R2): the overview of
+   statistical tests, the codebooks of the sensed and country-level predictors, and the descriptives (read
+   from the docx, where these tables exist only), and the measurement invariance tables (built from
+   `results/mi_across_datasets/` and `results/mi_across_countries/`). Output: `results/supplementary_data/`.
+   The block `si_numbering` in `cfg_postprocessing.yaml` sets which R2 tables became Supplementary Data and the
+   prefix of the final numbers; `src/utils/SINumbering.py` derives the final numbers from it, and both scripts
+   label their files with them. The block `create_supplementary_data` holds the other settings.
+
+Figures 2 and 3 are rendered at their final print size with the settings in `cfg_postprocessing.yaml`
+(`create_cv_results_plots: plot_type: box`, `general: figure_style`). Setting `plot_type: bar` and
+`figure_style: apply: false` restores the bar plots of earlier versions.
+
 ### General Description 
 To reproduce the results, adjust the params in `cfg_analysis.yaml` in lines 7-10 and execute the analyses sequentially. 
 
@@ -272,7 +344,7 @@ self-esteem.
 The feature combinations in `cfg_analysis.yaml` with the suffix `npers` represent the analysis excluding all personality traits.
 
 For the supplementary analyses using the alternative imputation strategy, no separate config entry is provided. However, 
-setting `add_study: true` in the `Imputation` section of `cfg_analysis.yaml will trigger the alternative imputation 
+setting `add_study_var: true` in the `imputation` section of `cfg_analysis.yaml` will trigger the alternative imputation 
 procedure and generate the corresponding results.
 
 ### Walk-Through 
@@ -316,7 +388,7 @@ Modify the top lines in the configuration files to conduct postprocessing.
 - `execute_analysis: false`
 - `execute_postprocessing: true`
 
-One may adjust the specific postprocessing methods to apply in lines 7-16 in `cfg_postprocessing.yaml`.
+One may adjust the specific postprocessing methods to apply under `methods_to_apply` in `cfg_postprocessing.yaml`.
 
 Run the main function once these settings are adjusted.
 
@@ -350,7 +422,7 @@ predicting_well_being/
 │   │   ├── ENRAnalyzer.py
 │   │   ├── Imputer.py
 │   │   ├── NonLinearImputer.py
-│   │   ├── PearsonFeatureSelector.py
+│   │   ├── PearsonFeaureSelector.py
 │   │   ├── RFRAnalyzer.py
 │   │   ├── SafeLogisticRegression.py
 │   │   ├── ShuffledGroupKFold.py
@@ -360,7 +432,7 @@ predicting_well_being/
 │   │   ├── DescriptiveStatistics.py
 │   │   ├── InvarianceTester.py
 │   │   ├── LinearRegressor.py
-│   │   ├── PostProcessor.py
+│   │   ├── Postprocessor.py
 │   │   ├── ResultPlotter.py
 │   │   ├── SampleMissingsAnalyzer.py
 │   │   ├── ShapProcessor.py
@@ -369,7 +441,8 @@ predicting_well_being/
 │   │
 │   ├── preprocessing/
 │   │   ├── BasePreprocessor.py
-│   │   ├── CocosemPreprocessor.py
+│   │   ├── CocoesmPreprocessor.py
+│   │   ├── CocomsPreprocessor.py
 │   │   ├── CocoutPreprocessor.py
 │   │   ├── EmotionsPreprocessor.py
 │   │   ├── PiaPreprocessor.py
@@ -383,10 +456,13 @@ predicting_well_being/
 │   │   ├── DataSelector.py
 │   │   ├── Logger.py
 │   │   ├── SanityChecker.py
+│   │   ├── SINumbering.py
 │   │   ├── SlurmHandler.py
 │   │   ├── Timer.py
 │   │   ├── utilfuncs.py
 │   │
+│   ├── create_source_data.py
+│   ├── create_supplementary_data.py
 │   ├── main.py
 │   ├── ss_cluster1.sh
 │   ├── ss_cluster2.sh
@@ -400,4 +476,6 @@ predicting_well_being/
 
 ## License
 
-CC-By Attribution 4.0 International
+This repository is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0,
+https://creativecommons.org/licenses/by/4.0/). You may share and adapt the code for any purpose, provided you
+give appropriate credit by citing the article and this repository.

@@ -136,8 +136,9 @@ class LinearRegressor:
         return Imputer(
             logger=self.logger,
             model=postprocessing_imputation_params["model"],
-            fix_rs=self.cfg_analysis["random_state"],
-            max_iter=1,  # self.cfg_analysis["imputation"]["max_iter"],
+            # The imputer seeds each imputation with random_state + its number
+            fix_rs=postprocessing_imputation_params["random_state"],
+            max_iter=postprocessing_imputation_params["max_iter"],
             num_imputations=postprocessing_imputation_params["num_imputations"],
             conv_thresh=self.cfg_analysis["imputation"]["conv_thresh"],
             tree_max_depth=self.cfg_analysis["imputation"]["tree_max_depth"],
@@ -221,10 +222,15 @@ class LinearRegressor:
 
         The table includes:
         - Predictors (independent variables)
-        - Estimates (coefficients)
+        - Estimates (coefficients; predictors are z-scored, the criterion is not)
+        - Standard errors (SE)
         - Confidence Intervals (CI)
-        - P-values
-        - Model summary statistics (e.g., R² and Adjusted R², number of observations)
+        - t values with residual degrees of freedom, t(df)
+        - P-values (two-sided, format set by `p_format` in the cfg)
+        - Model summary statistics (e.g., R² and Adjusted R², number of observations, residual df)
+
+        If `store_raw` is set in the cfg, the unrounded statistics are also saved as CSV
+        and the statsmodels summary as TXT, so the table can be re-formatted without re-fitting.
 
         Args:
             feature_combination (str): The name of the feature combination for the table title.
@@ -232,48 +238,59 @@ class LinearRegressor:
             output_dir (str): Directory to save the resulting Excel file.
         """
         coefficients = model.params
+        standard_errors = model.bse
         conf_int = model.conf_int()
+        t_values = model.tvalues
         p_values = model.pvalues
+        df_resid = int(model.df_resid)
 
         lin_model_cfg = self.cfg_postprocessing["calculate_exp_lin_models"]
         decimals = lin_model_cfg["decimals"]
         store = lin_model_cfg["store"]
         base_filename = lin_model_cfg["base_filename"]
+        p_format = lin_model_cfg["p_format"]
 
         regression_table = pd.DataFrame(
             {
                 "Predictors": coefficients.index,
                 "Estimates": coefficients.values,
+                "SE": standard_errors.values,
                 "CI": conf_int.apply(
                     lambda x: f"[{x[0]:.{decimals}f}, {x[1]:.{decimals}f}]", axis=1
                 ),
+                f"t({df_resid})": t_values.values,
                 "p": p_values.values,
             }
         )
 
-        regression_table["Estimates"] = regression_table["Estimates"].apply(
-            lambda x: f"{x:.{decimals}f}"
+        for col in ["Estimates", "SE", f"t({df_resid})"]:
+            regression_table[col] = regression_table[col].apply(
+                lambda x: f"{x:.{decimals}f}"
+            )
+        regression_table["p"] = format_p_values(
+            regression_table["p"].tolist(), style=p_format
         )
-        regression_table["p"] = format_p_values(regression_table["p"].tolist())
         regression_table["Predictors"] = apply_name_mapping(
             features=list(regression_table["Predictors"]),
             name_mapping=self.name_mapping,
             prefix=True,
         )
+        regression_table["Predictors"] = regression_table["Predictors"].replace(
+            {"const": "Constant"}
+        )
 
         r_squared = model.rsquared
         adj_r_squared = model.rsquared_adj
-        observations = model.nobs
+        observations = int(model.nobs)
 
         footer_rows = pd.DataFrame(
             {
-                "Predictors": ["Observations", "R² / R² adjusted"],
+                "Predictors": ["Observations", "Residual df", "R² / R² adjusted"],
                 "Estimates": [
                     f"{observations}",
+                    f"{df_resid}",
                     f"{r_squared:.{decimals}f} / {adj_r_squared:.{decimals}f}",
                 ],
-                "CI": [None, None],
-                "p": [None, None],
             }
         )
         final_table = pd.concat([regression_table, footer_rows], ignore_index=True)
@@ -285,3 +302,26 @@ class LinearRegressor:
             self.data_saver.save_excel(
                 df=final_table, output_path=output_path, index=False
             )
+
+        if lin_model_cfg["store_raw"]:
+            raw_table = pd.DataFrame(
+                {
+                    "predictor": coefficients.index,
+                    "estimate": coefficients.values,
+                    "se": standard_errors.values,
+                    "ci_lower": conf_int[0].values,
+                    "ci_upper": conf_int[1].values,
+                    "t": t_values.values,
+                    "df_resid": df_resid,
+                    "p": p_values.values,
+                    "n": observations,
+                    "r2": r_squared,
+                    "r2_adj": adj_r_squared,
+                }
+            )
+            raw_base_path = os.path.join(
+                output_dir, f"{base_filename}_{feature_combination}_raw"
+            )
+            self.data_saver.save_csv(df=raw_table, output_path=f"{raw_base_path}.csv")
+            with open(f"{raw_base_path}_summary.txt", "w") as f:
+                f.write(model.summary().as_text())

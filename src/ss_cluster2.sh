@@ -44,7 +44,7 @@ else
   MEMORY_REQUEST=""
 fi
 
-# Removed account names for blinding
+# Adjust the paths below (xxx = user account) to your cluster environment
 BASE_DIR="/scratch/xxx/coco_wb_ml_code/run_2811"
 ENV_PATH="/scratch/xxx/coco_wb_ml_code/mpi_env/bin/activate"
 PYTHONPATH_BASE="/scratch/xxx/coco_wb_ml_code"
@@ -126,7 +126,7 @@ for crit in "${CRITERIA[@]}"; do
 #SBATCH --partition=$PARTITION
 #SBATCH --time=$TIMELIMIT
 #SBATCH --mail-type=FAIL
-#SBATCH --mail-user=xxx  # removed for blinding
+#SBATCH --mail-user=xxx  # adjust to your e-mail address
 #SBATCH -J $JOB_NAME
 #SBATCH --output=${FULL_LOG_PATH_LOG}
 #SBATCH --error=${FULL_LOG_PATH_ERR}
@@ -191,7 +191,7 @@ EOF
 #SBATCH --partition=normal
 #SBATCH --time=$TIMELIMIT
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=xxx  # removed for blinding
+#SBATCH --mail-user=xxx  # adjust to your e-mail address
 #SBATCH -J $JOB_NAME
 #SBATCH --output=${FULL_LOG_PATH_LOG}
 #SBATCH --error=${FULL_LOG_PATH_ERR}

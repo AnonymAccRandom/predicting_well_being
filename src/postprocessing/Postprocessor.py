@@ -107,12 +107,20 @@ class Postprocessor:
             "processed_filenames"
         ]
 
-        self.full_data = self.data_loader.read_pkl(
-            os.path.join(
-                self.data_base_path,
-                self.cfg_preprocessing["general"]["full_data_filename"],
-            )
+        # Methods that only use stored results (e.g., cv result plots, SHAP plots, significance
+        # tests) also run without the preprocessed data. Methods that need the data fail without it.
+        full_data_path = os.path.join(
+            self.data_base_path,
+            self.cfg_preprocessing["general"]["full_data_filename"],
         )
+        if os.path.exists(full_data_path):
+            self.full_data = self.data_loader.read_pkl(full_data_path)
+        else:
+            print(
+                f"WARNING: No preprocessed data found at {full_data_path}. "
+                f"Only methods based on stored results can be applied."
+            )
+            self.full_data = None
 
         self.logger = Logger(
             log_dir=self.cfg_preprocessing["general"]["log_dir"],
@@ -480,6 +488,8 @@ class Postprocessor:
             "feature_combinations"
         ]["name_mapping"]["main"].keys():
             for samples_to_include in linear_regressor_cfg["samples_to_include"]:
+                if feature_combination.startswith("all_in"):
+                    samples_to_include = "all"  # all_in has no reduced-dataset analysis
                 for crit in linear_regressor_cfg["crits"]:
                     for model_for_features in linear_regressor_cfg[
                         "model_for_features"

@@ -55,6 +55,31 @@ class ResultPlotter:
             base_result_path, self.cfg_postprocessing["general"]["data_paths"]["plots"]
         )
 
+    def apply_figure_style(self) -> None:
+        """
+        Sets the font and the PDF font type for all following plots, if specified in the cfg.
+
+        With `pdf.fonttype: 42`, text is embedded as TrueType and stays editable in the PDF
+        (matplotlib's default, Type 3, does not). Mathtext (e.g., italic r and n) uses the same font.
+        """
+        style_cfg = self.cfg_postprocessing["general"].get("figure_style", {})
+        if not style_cfg.get("apply", False):
+            return
+
+        font = style_cfg["font_family"]
+        plt.rcParams.update(
+            {
+                "font.family": "sans-serif",
+                "font.sans-serif": [font],
+                "pdf.fonttype": style_cfg["pdf_fonttype"],
+                "ps.fonttype": style_cfg["pdf_fonttype"],
+                "mathtext.fontset": "custom",
+                "mathtext.rm": font,
+                "mathtext.it": f"{font}:italic",
+                "mathtext.bf": f"{font}:bold",
+            }
+        )
+
     def plot_cv_results_plots_wrapper(
         self, cv_results_dct: NestedDict, rel: Optional[float] = None
     ) -> None:
@@ -76,6 +101,8 @@ class ResultPlotter:
                             Each entry corresponds to mean/standard deviation values for a given metric.
             rel: Optional reliability of the specified criterion. If `None`, reliability is not included in the plots.
         """
+        self.apply_figure_style()
+
         feature_combos = [
             feature_combination_lst
             for feature_combination_lst in self.cfg_cv_results_plot[
@@ -227,7 +254,7 @@ class ResultPlotter:
         - For each feature combo, loads JSON files from both model subdirectories (elasticnet and randomforestregressor).
         - Extracts all Pearson correlation values from each file and aggregates them by model.
 
-        Note: Not used in the final plots
+        Note: Only used if plot_type is "box" in the cfg (fold-level distributions instead of bars)
 
         Args:
             feature_combos: List of feature combination names to process.
@@ -476,18 +503,86 @@ class ResultPlotter:
         )
 
         y_line_cfg = figure_params["y_line"]
-        for x, y in zip(y_line_cfg["x_pos"], y_line_cfg["y_pos"]):
-            line = mlines.Line2D(
-                xdata=[x, x],
-                ydata=y,
-                transform=fig.transFigure,
-                color=y_line_cfg["color"],
-                linestyle=y_line_cfg["linestyle"],
-                linewidth=y_line_cfg["linewidth"],
-            )
-            fig.add_artist(line)
+        if not y_line_cfg.get("auto", False):
+            for x, y in zip(y_line_cfg["x_pos"], y_line_cfg["y_pos"]):
+                line = mlines.Line2D(
+                    xdata=[x, x],
+                    ydata=y,
+                    transform=fig.transFigure,
+                    color=y_line_cfg["color"],
+                    linestyle=y_line_cfg["linestyle"],
+                    linewidth=y_line_cfg["linewidth"],
+                )
+                fig.add_artist(line)
 
         plt.tight_layout(rect=figure_params["tight_layout"])
+
+        if y_line_cfg.get("auto", False):
+            # One vertical line per column at x = 0, spanning the subplots of that column (positions after layout)
+            for col_idx, group in enumerate(feature_combinations):
+                col_axes = [axes[row_idx, col_idx] for row_idx in range(len(group))]
+                x_fig = fig.transFigure.inverted().transform(
+                    col_axes[0].transData.transform((0, 0))
+                )[0]
+                y_bottom = min(ax.get_position().y0 for ax in col_axes)
+                y_top = max(ax.get_position().y1 for ax in col_axes)
+                fig.add_artist(
+                    mlines.Line2D(
+                        xdata=[x_fig, x_fig],
+                        ydata=[y_bottom, y_top],
+                        transform=fig.transFigure,
+                        color=y_line_cfg["color"],
+                        linestyle=y_line_cfg["linestyle"],
+                        linewidth=y_line_cfg["linewidth"],
+                    )
+                )
+            for col_idx, group in enumerate(feature_combinations):
+                for row_idx in range(len(group)):
+                    # x-axis line starts at zero, together with the vertical line
+                    axes[row_idx, col_idx].spines["bottom"].set_bounds(
+                        0, figure_params["x_max"]
+                    )
+
+        ref_line_cfg = self.cfg_cv_results_plot.get("box_params", {}).get(
+            "ref_line", {}
+        )
+        if (
+            self.cfg_cv_results_plot.get("plot_type", "bar") == "box"
+            and ref_line_cfg["add"]
+            and ref_line_cfg["span"] == "column"
+        ):
+            # Person-only mean (all datasets) as a line across the whole column, per model (panels b and c)
+            m_metric = self.cfg_cv_results_plot["m_metric"]
+            for col_idx, group in enumerate(feature_combinations):
+                if col_idx == 0:
+                    continue
+                col_axes = [axes[row_idx, col_idx] for row_idx in range(len(group))]
+                # The line lies behind the axes, so their background must be open
+                for ax in col_axes:
+                    ax.set_facecolor("none")
+                y_bottom = min(ax.get_position().y0 for ax in col_axes)
+                y_top = max(ax.get_position().y1 for ax in col_axes)
+                for model in ref_line_cfg.get("models", models):
+                    ref_value = ref_dct[f"pl_{model}"][m_metric]
+                    x_fig = fig.transFigure.inverted().transform(
+                        col_axes[0].transData.transform((ref_value, 0))
+                    )[0]
+                    fig.add_artist(
+                        mlines.Line2D(
+                            xdata=[x_fig, x_fig],
+                            ydata=[y_bottom, y_top],
+                            transform=fig.transFigure,
+                            color=color_dct["pl"],
+                            alpha=(
+                                color_dct["bar_saturation"][model]
+                                if len(ref_line_cfg.get("models", models)) > 1
+                                else 1
+                            ),
+                            linestyle=ref_line_cfg["linestyle"],
+                            linewidth=ref_line_cfg["linewidth"],
+                            zorder=0,
+                        )
+                    )
 
         if self.cfg_cv_results_plot["store_params"]["store"]:
             self.store_plot(
@@ -560,6 +655,22 @@ class ResultPlotter:
                 label=feature_combo_legend_cfg["other_label"],
             )
             legends_to_plot.extend([personal_patch, other_patch])
+
+            ref_line_cfg = self.cfg_cv_results_plot.get("box_params", {}).get(
+                "ref_line", {}
+            )
+            if self.cfg_cv_results_plot.get(
+                "plot_type", "bar"
+            ) == "box" and ref_line_cfg["add"]:
+                ref_line = mlines.Line2D(
+                    [],
+                    [],
+                    color=color_dct[ref_feature_combo],
+                    linestyle=ref_line_cfg["linestyle"],
+                    linewidth=ref_line_cfg["linewidth"],
+                    label=ref_line_cfg["legend_label"],
+                )
+                legends_to_plot.append(ref_line)
 
         if rel:
             rel_cfg = self.cfg_cv_results_plot["rel"]
@@ -635,17 +746,37 @@ class ResultPlotter:
             value = data[model_key][self.cfg_cv_results_plot["m_metric"]]
             error = data[model_key][self.cfg_cv_results_plot["sd_metric"]]
 
-            ax.barh(
-                y_position_to_plot,
-                value,
-                xerr=error,
-                height=bar_width,
-                color=base_color,
-                align=self.cfg_cv_results_plot["figure_params"]["bar_align"],
-                capsize=self.cfg_cv_results_plot["figure_params"]["bar_capsize"],
-                edgecolor=None,
-                alpha=alpha,
-            )
+            if self.cfg_cv_results_plot.get("plot_type", "bar") == "box":
+                self._plot_fold_distribution(
+                    ax=ax,
+                    values=data[model_key]["vals"],
+                    mean=value,
+                    y_center=y_position_to_plot,
+                    bar_width=bar_width,
+                    color=base_color,
+                    alpha=alpha,
+                    metric=metric,
+                    seed_offset=i,
+                    point_color=self.cfg_cv_results_plot["box_params"]
+                    .get("point_colors", {})
+                    .get(
+                        ref_feature_combo
+                        if feature_combo == ref_feature_combo
+                        else "other"
+                    ),
+                )
+            else:
+                ax.barh(
+                    y_position_to_plot,
+                    value,
+                    xerr=error,
+                    height=bar_width,
+                    color=base_color,
+                    align=self.cfg_cv_results_plot["figure_params"]["bar_align"],
+                    capsize=self.cfg_cv_results_plot["figure_params"]["bar_capsize"],
+                    edgecolor=None,
+                    alpha=alpha,
+                )
 
             self._annotate_model_label(
                 ax=ax,
@@ -656,6 +787,7 @@ class ResultPlotter:
                 model_label_map={"elasticnet": "ENR", "randomforestregressor": "RFR"},
                 fontsizes=fontsizes,  # make sure fontsizes["bar_label"] exists or rely on default 12
                 x_offset_frac=0.05,  # tweak if you want a tad more / less padding
+                outside=self.cfg_cv_results_plot.get("plot_type", "bar") == "box",
             )
 
         self.format_bar_plot(
@@ -735,7 +867,52 @@ class ResultPlotter:
             other_feat_color = color_dct["other"]
             ref_color = color_dct[ref_feature_combo]
 
-            if increment > 0:
+            if self.cfg_cv_results_plot.get("plot_type", "bar") == "box":
+                # Distribution of the combined model; the bar is split at the person-only mean (all datasets)
+                model_key = f"{feature_combo}_{model}"
+                box_cfg = self.cfg_cv_results_plot["box_params"]
+                self._plot_fold_distribution(
+                    ax=ax,
+                    values=data[model_key]["vals"],
+                    mean=data[model_key][m_metric],
+                    y_center=y_position_to_plot,
+                    bar_width=bar_width,
+                    color=other_feat_color,
+                    alpha=alpha,
+                    metric=metric,
+                    seed_offset=i,
+                    point_color=box_cfg.get("point_colors", {}).get("other"),
+                    # split the bar at the person-only mean (blue / green) or draw it in green only
+                    base_value=base_value if box_cfg.get("split_bar", True) else None,
+                    base_color=ref_color,
+                )
+                ref_line_cfg = box_cfg["ref_line"]
+                if ref_line_cfg["add"] and ref_line_cfg["span"] == "bar":
+                    half_len = bar_width * ref_line_cfg["length_frac"] / 2
+                    ax.vlines(
+                        x=base_value,
+                        ymin=y_position_to_plot - half_len,
+                        ymax=y_position_to_plot + half_len,
+                        color=ref_color,
+                        linewidth=ref_line_cfg["linewidth"],
+                        zorder=6,
+                    )
+                self._annotate_model_label(
+                    ax=ax,
+                    y_pos=y_position_to_plot,
+                    bar_len=base_value,
+                    fontweight="bold",
+                    model=model,
+                    model_label_map={
+                        "elasticnet": "ENR",
+                        "randomforestregressor": "RFR",
+                    },
+                    fontsizes=fontsizes,
+                    x_offset_frac=0.05,
+                    outside=True,
+                )
+
+            elif increment > 0:
                 ax.barh(
                     y_position_to_plot,
                     base_value,
@@ -879,6 +1056,134 @@ class ResultPlotter:
 
         ax.scatter(x, y, c=color, s=size, alpha=alpha, linewidths=0, zorder=4)
 
+    def _plot_fold_distribution(
+        self,
+        ax: Axes,
+        values: list[float],
+        mean: float,
+        y_center: float,
+        bar_width: float,
+        color: str,
+        alpha: float,
+        metric: str,
+        seed_offset: int = 0,
+        point_color: Optional[str] = None,
+        base_value: Optional[float] = None,
+        base_color: Optional[str] = None,
+    ) -> None:
+        """
+        Draws the distribution of the outer-fold performance values of one model as a horizontal box plot
+        with the individual values overlaid as jittered points. Optionally, a bar from zero to the mean is
+        drawn below (`add_bar` in the cfg) and/or the mean is marked (`mean_marker`).
+        If `base_value` is given (two- and three-level panels), the bar is split as in the bar version:
+        from zero to the reference (person-only) mean in `base_color`, the increment in `color`.
+
+        Box plot definition (matplotlib defaults, set explicitly here):
+        - centre line: median
+        - box: 25th to 75th percentile
+        - whiskers: most extreme value within 1.5 x IQR from the box
+        - no separate outlier symbols, because all individual values are drawn as points
+
+        Args:
+            ax: The Matplotlib Axes to plot on.
+            values: Outer-fold performance values of the model (10 reps x 10 outer folds x 5 imputations = 500).
+            mean: Mean performance across all values, drawn as a marker.
+            y_center: Vertical center of the box.
+            bar_width: Vertical space available per model, used to scale the box height and the jitter.
+            color: Color of the bar or, without a bar, of the box face.
+            alpha: Transparency of the bar or box face (differentiates ENR and RFR).
+            metric: The metric plotted. The fold-level values are Pearson correlations only.
+            seed_offset: Added to the seed so that ENR and RFR get different, but reproducible, jitter.
+            point_color: Fill color of the points; defaults to `point_color` in the cfg.
+            base_value: Mean of the reference model (person-only predictors), splits the bar.
+            base_color: Color of the bar segment up to `base_value`.
+        """
+        if metric != "pearson":
+            raise ValueError(
+                "plot_type 'box' needs fold-level values, which are only loaded for metric 'pearson'"
+            )
+
+        box_cfg = self.cfg_cv_results_plot["box_params"]
+        x = np.asarray(values, float)
+
+        # Set the final x-limits already here, because the model labels are positioned relative to them
+        figure_params = self.cfg_cv_results_plot["figure_params"]
+        ax.set_xlim(figure_params["x_min"], figure_params["x_max"])
+
+        # Optional bar from zero to the mean below the box plot (the box face is then left open)
+        add_bar = box_cfg.get("add_bar", False)
+        if add_bar:
+            bar_kwargs = {
+                "height": bar_width * box_cfg.get("bar_height_frac", 1),
+                "alpha": alpha * box_cfg.get("bar_alpha_factor", 1),
+                "align": figure_params["bar_align"],
+                "edgecolor": None,
+                "zorder": 2,
+            }
+            if base_value is None:
+                ax.barh(y_center, mean, color=color, **bar_kwargs)
+            elif mean > base_value:
+                ax.barh(y_center, base_value, color=base_color, **bar_kwargs)
+                ax.barh(
+                    y_center,
+                    mean - base_value,
+                    left=base_value,
+                    color=color,
+                    **bar_kwargs,
+                )
+            else:
+                # No increment over the reference: only the reference color, as in the bar version
+                ax.barh(y_center, mean, color=base_color, **bar_kwargs)
+
+        box_height = bar_width * box_cfg["box_height_frac"]
+
+        ax.boxplot(
+            [x],
+            positions=[y_center],
+            vert=False,
+            widths=box_height,
+            whis=box_cfg["whis"],
+            showfliers=False,
+            patch_artist=True,
+            boxprops={
+                "facecolor": "none" if add_bar else color,
+                "alpha": 1 if add_bar else alpha,
+                "edgecolor": "black",
+                "linewidth": box_cfg["linewidth"],
+            },
+            medianprops={"color": "black", "linewidth": box_cfg["linewidth"]},
+            whiskerprops={"color": "black", "linewidth": box_cfg["linewidth"]},
+            capprops={"color": "black", "linewidth": box_cfg["linewidth"]},
+            manage_ticks=False,
+            zorder=5,  # above the points, so the black box outline stays visible
+        )
+
+        rng = np.random.default_rng(box_cfg["seed"] + seed_offset)
+        jitter = (rng.random(x.size) * 2 - 1) * box_height / 2 * box_cfg["jitter_frac"]
+        ax.scatter(
+            x,
+            y_center + jitter,
+            color=point_color or box_cfg["point_color"],
+            s=box_cfg["point_size"],
+            alpha=box_cfg["point_alpha"],
+            edgecolors=box_cfg.get("point_edgecolor", "none"),
+            linewidths=box_cfg.get("point_edgewidth", 0),
+            zorder=4,
+        )
+
+        mean_cfg = box_cfg["mean_marker"]
+        if mean_cfg["add"]:
+            ax.scatter(
+                [mean],
+                [y_center],
+                marker=mean_cfg["marker"],
+                s=mean_cfg["size"],
+                facecolor=mean_cfg["facecolor"],
+                edgecolor="black",
+                linewidths=box_cfg["linewidth"],
+                zorder=5,
+            )
+
     @staticmethod
     def _annotate_model_label(
         ax: Axes,
@@ -891,6 +1196,7 @@ class ResultPlotter:
         fontsizes: dict[str, int],
         x_offset_frac: float = 0.01,
         extra_text_kwargs: dict[str, Any] | None = None,
+        outside: bool = False,
     ) -> None:
         """
         Adds a model label to the left edge of a horizontal bar in a bar plot.
@@ -898,6 +1204,8 @@ class ResultPlotter:
         The method determines whether the bar is positive or negative and places the label accordingly,
         offset slightly from the y-axis using a fraction of the axis range. The label text is retrieved
         from a mapping dictionary and styled with optional parameters.
+        If `outside` is True (box plots), the label is placed left of the y-axis instead, so that it
+        does not overlap the distribution.
 
         Args:
             ax: The matplotlib Axes object where the text will be added.
@@ -917,8 +1225,11 @@ class ResultPlotter:
         x_span = ax.get_xlim()[1] - ax.get_xlim()[0]
         x_offset = x_offset_frac * x_span
 
-        # Text just right of the y-axis (or just left for negative bars)
-        if bar_len >= 0:
+        # Text just right of the y-axis (or just left for negative bars or if outside)
+        if outside:
+            x_text = ax.get_xlim()[0] - x_offset
+            ha = "right"
+        elif bar_len >= 0:
             x_text = ax.get_xlim()[0] + x_offset
             ha = "left"
         else:
@@ -1000,11 +1311,13 @@ class ResultPlotter:
         )
 
         ax.spines["left"].set_visible(False)
-        xticks_decimals = self.cfg_cv_results_plot["format_bar_plot"]["axes"]["xticks"][
-            "decimals"
-        ]
+        xticks_cfg = self.cfg_cv_results_plot["format_bar_plot"]["axes"]["xticks"]
+        xticks_decimals = xticks_cfg["decimals"]
+        leading_zero = xticks_cfg.get("leading_zero", False)
         ax.xaxis.set_major_formatter(
-            FuncFormatter(lambda x, _: self.format_metric(x, xticks_decimals))
+            FuncFormatter(
+                lambda x, _: self.format_metric(x, xticks_decimals, leading_zero)
+            )
         )
         ax.tick_params(axis="x", labelsize=fontsizes["tick_params"])
         ax.tick_params(
@@ -1066,15 +1379,19 @@ class ResultPlotter:
         )
 
     @staticmethod
-    def format_metric(metric: float, xticks_decimals: int = 2) -> Union[str, int]:
+    def format_metric(
+        metric: float, xticks_decimals: int = 2, leading_zero: bool = False
+    ) -> Union[str, int]:
         """
-        Formats a given metric according to APA style:
-            - No leading zero for correlations or R² values (e.g., .85 instead of 0.85).
+        Formats a given metric according to APA style (default) or journal style:
+            - APA: No leading zero for correlations or R² values (e.g., .85 instead of 0.85).
+            - Journal (leading_zero=True): Leading zero kept (e.g., 0.85).
             - Rounded to the specified number of decimal places.
 
         Args:
             metric: The metric to be formatted (e.g., a correlation or R² value).
             xticks_decimals: The number of decimal places for rounding. Defaults to 2.
+            leading_zero: If True, keeps the leading zero (journal style). Defaults to False (APA).
 
         Returns:
             Union[str, int]: A string representation of the formatted metric or 0 for exact zero.
@@ -1084,6 +1401,9 @@ class ResultPlotter:
 
         if metric == 0:
             return 0
+
+        if leading_zero:
+            return f"{metric:.{xticks_decimals}f}"
 
         return f"{metric:.{xticks_decimals}f}".lstrip("0").replace("-.", "-0.")
 
@@ -1276,6 +1596,8 @@ class ResultPlotter:
             Returns:
                 None: The function generates and either saves or displays the SHAP beeswarm plots.
         """
+        self.apply_figure_style()
+
         col_assignment = self.cfg_shap_plot["col_assignment"]
         positions = {}
 
@@ -1432,6 +1754,8 @@ class ResultPlotter:
                         wspace=beeswarm_subplot_adj["wspace"],
                         hspace=beeswarm_subplot_adj["hspace"],
                         right=beeswarm_subplot_adj["right"],
+                        # Without "bottom" in the cfg, matplotlib's default is used
+                        bottom=beeswarm_subplot_adj.get("bottom"),
                     )
 
                     if self.cfg_shap_plot["store_params"]["store"]:
@@ -1539,6 +1863,12 @@ class ResultPlotter:
             color_bar=False,
             cmap=cmap,
         )
+
+        # shap draws the points with a fixed marker size, which is too large at the final print size
+        point_size = beeswarm_figure_params.get("point_size")
+        if point_size:
+            for collection in ax.collections:
+                collection.set_sizes([point_size])
 
         if ia_values:
             split_strng = self.cfg_shap_plot["ia_values"]["title_split_strng"]  # ":"

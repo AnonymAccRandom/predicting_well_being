@@ -250,23 +250,29 @@ def merge_M_SD_in_dct(dct: Union[dict, NestedDict]) -> Union[dict, NestedDict]:
     return updated_dct
 
 
-def format_p_values(lst_of_p_vals: list[float]) -> list[str]:
+def format_p_values(lst_of_p_vals: list[float], style: str = "apa") -> list[str]:
     """
-    This function formats the p_values according to APA standards (3 decimals, <.001 otherwise)
+    This function formats the p_values with 3 decimals, and as "<.001" / "<0.001" below .001.
 
     Args:
         lst_of_p_vals: list, containing the p_values for a given analysis setting.
+        style: "apa" (no leading zero, e.g., ".040") or "journal" (leading zero, e.g., "0.040").
 
     Returns:
-        formatted_p_vals: list, contains p_values formatted according to APA style.
+        formatted_p_vals: list, contains the formatted p_values.
     """
+    if style not in ["apa", "journal"]:
+        raise ValueError(f"style must be 'apa' or 'journal', got '{style}'")
+
     formatted_p_vals = []
 
     for p_val in lst_of_p_vals:
         if p_val < 0.001:
-            formatted_p_vals.append("<.001")
+            formatted_p_vals.append("<.001" if style == "apa" else "<0.001")
         else:
-            formatted = "{:.3f}".format(p_val).lstrip("0")
+            formatted = "{:.3f}".format(p_val)
+            if style == "apa":
+                formatted = formatted.lstrip("0")
             formatted_p_vals.append(formatted)
 
     return formatted_p_vals

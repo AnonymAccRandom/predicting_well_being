@@ -120,7 +120,7 @@ if __name__ == "__main__":
             )
             df = data_loader.read_pkl(path_to_full_data)
 
-            # Save file also as csv for OSF
+            # Save file also as csv for the data deposit
             data_saver.save_csv(
                 df,
                 os.path.join(

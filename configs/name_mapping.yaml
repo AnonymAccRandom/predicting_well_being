@@ -165,9 +165,9 @@ sens:
   smartphone_activation_max: "Max daily smartphone activation (locked)"
 
   phone_talking_mean: "Mean daily talking on the phone"
-  phone_talking_sd: "Mean daily talking on the phone"
-  phone_talking_min: "Mean daily talking on the phone"
-  phone_talking_max: "Mean daily talking on the phone"
+  phone_talking_sd: "SD daily talking on the phone"
+  phone_talking_min: "Min daily talking on the phone"
+  phone_talking_max: "Max daily talking on the phone"
 
   first_usage_mean: "Mean first daily smartphone usage"
   first_usage_sd: "SD first daily smartphone usage"
